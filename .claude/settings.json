@@ -1,0 +1,118 @@
+{
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git fetch:*)",
+      "Bash(git merge:*)",
+      "Bash(git reset:*)",
+      "Bash(git checkout:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate Minimal Mistakes theme core files from upstream\n\nUpdated theme directories (_includes, _layouts, _sass, assets) to latest \nupstream version from mmistakes/minimal-mistakes master branch.\n\nNotable updates include:\n- New comment providers (giscus, utterances, staticman_v2)\n- New analytics provider (google-gtag)\n- Enhanced search functionality\n- New layout types (categories, tags, posts, search)\n- Updated JavaScript libraries and Sass files\n- Copyright footer functionality\n- Schema markup support\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git remote set-url:*)",
+      "Bash(mkdir:*)",
+      "Bash(curl:*)",
+      "Bash(bundle exec:*)",
+      "Bash(rbenv versions:*)",
+      "Bash(bundle install:*)",
+      "Bash(gem install:*)",
+      "Bash(bundle update:*)",
+      "Bash(rbenv:*)",
+      "Bash(gem uninstall:*)",
+      "Bash(ruby:*)",
+      "Bash(git -C /Users/michaelhenry/Documents/DJ-WP-site log --oneline -10)",
+      "Bash(git -C /Users/michaelhenry/Documents/DJ-WP-site remote -v)",
+      "Bash(xcrun:*)",
+      "Bash(xcodebuild:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "defaultMode": "dontAsk"
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx vibe-log-cli analyze-prompt --silent --stdin"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx vibe-log-cli send --silent --background --hook-trigger=sessionstart --hook-version=1.0.0 --all"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-check-update.js\""
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx vibe-log-cli send --silent --background --hook-trigger=precompact --hook-version=1.0.0 --all"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "clear|logout|prompt_input_exit|other",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx vibe-log-cli send --silent --background --hook-trigger=sessionend --hook-version=1.0.0 --all"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-context-monitor.js\""
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-statusline.js\""
+  },
+  "enabledPlugins": {
+    "commit-commands@claude-plugins-official": true,
+    "context7@claude-plugins-official": true,
+    "explanatory-output-style@claude-plugins-official": true,
+    "feature-dev@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "learning-output-style@claude-plugins-official": true,
+    "ralph-wiggum@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true,
+    "vercel@claude-plugins-official": true,
+    "n8n-mcp-skills@n8n-mcp-skills": true,
+    "taches-cc-resources@taches-cc-resources": true,
+    "warp@claude-code-warp": true,
+    "impeccable@impeccable": true
+  },
+  "alwaysThinkingEnabled": true,
+  "skipDangerousModePermissionPrompt": true
+}
