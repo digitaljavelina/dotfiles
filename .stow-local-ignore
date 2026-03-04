@@ -1,11 +1,13 @@
 \.DS_Store
 .git
 .env
+^data$
 
 # GSD plugin - auto-managed, reinstalled via /gsd:update
-.claude/get-shit-done
-.claude/gsd-file-manifest.json
-.claude/package.json
-.claude/agents/gsd-.*
-.claude/commands/gsd
-.claude/hooks/gsd-.*
+# (these live inside the 'claude' stow package at claude/.claude/)
+claude/\.claude/get-shit-done
+claude/\.claude/gsd-file-manifest.json
+claude/\.claude/package.json
+claude/\.claude/agents/gsd-.*
+claude/\.claude/commands/gsd
+claude/\.claude/hooks/gsd-.*
