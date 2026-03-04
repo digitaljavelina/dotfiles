@@ -1,0 +1,24 @@
+# This is Git's per-user configuration file.
+[user]
+	name = Michael Henry
+	email = digitaljavelina@users.noreply.github.com
+	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDIL+o53GaIVU+odtR+Tg06iTvHrhLEgtOr3V1Bs/prH
+# Please adapt and uncomment the following lines:
+	name = Michael Henry
+	email = digitaljavelina@users.noreply.github.com
+[init]
+	defaultBranch = main
+	templateDir = /Users/michaelhenry/.git-template
+[core]
+	excludesfile = /Users/michaelhenry/.gitignore_global
+[filter "lfs"]
+	smudge = git-lfs smudge -- %f
+	process = git-lfs filter-process
+	required = true
+	clean = git-lfs clean -- %f
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+[commit]
+	gpgsign = true
