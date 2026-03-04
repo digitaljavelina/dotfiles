@@ -152,4 +152,4 @@ esac
 eval "$(zoxide init zsh)"
 
 # eza
-alias ls="eza --icons --group-directories-first -l"
+alias ls="eza --icons --group-directories-first -ll"
