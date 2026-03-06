@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.vibelog.monitor</string>
+    
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/michaelhenry/scripts/vibelog-dayone/vibelog-monitor.py</string>
+    </array>
+    
+    <key>RunAtLoad</key>
+    <true/>
+    
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    
+    <key>StandardOutPath</key>
+    <string>/tmp/vibelog-monitor.out.log</string>
+    
+    <key>StandardErrorPath</key>
+    <string>/tmp/vibelog-monitor.err.log</string>
+    
+    <key>WorkingDirectory</key>
+    <string>/Users/michaelhenry/scripts/vibelog-dayone</string>
+    
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin</string>
+        <key>DAYONE_CLI</key>
+        <string>/usr/local/bin/dayone</string>
+        <key>DAYONE_JOURNAL</key>
+        <string>Social</string>
+    </dict>
+    
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+    
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

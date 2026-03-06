@@ -1,0 +1,6 @@
+certifi==2026.2.25
+meson==1.10.1
+mlx==0.31.0
+numpy==2.4.2
+pybind11==3.0.2
+PyMuPDF==1.26.7

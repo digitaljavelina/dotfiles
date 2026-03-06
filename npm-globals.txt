@@ -1,0 +1,4 @@
+@byterover/cipher
+@openai/codex
+clawdbot
+happy-coder

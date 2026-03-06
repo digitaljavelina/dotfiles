@@ -1,0 +1,20 @@
+# Font configuration
+font-family = "MesloLGS NF"
+font-size = 16
+
+# Window behavior
+window-padding-x = 10
+window-padding-y = 10
+macos-titlebar-style = native
+
+# Shell integration
+shell-integration = zsh
+shell-integration-features = cursor,sudo,title
+
+# other behavior
+confirm-close-surface = false
+keybind = shift+enter=text:\x1b\r
+
+# paste behaviors
+clipboard-paste-protection = false
+clipboard-paste-bracketed-safe = true

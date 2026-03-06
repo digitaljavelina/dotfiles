@@ -4,8 +4,8 @@
 	email = digitaljavelina@users.noreply.github.com
 	signingkey = ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIDIL+o53GaIVU+odtR+Tg06iTvHrhLEgtOr3V1Bs/prH
 # Please adapt and uncomment the following lines:
-	name = Michael Henry
-	email = digitaljavelina@users.noreply.github.com
+	# name = Michael Henry
+	# email = digitaljavelina@users.noreply.github.com
 [init]
 	defaultBranch = main
 	templateDir = /Users/michaelhenry/.git-template
