@@ -2,6 +2,27 @@
 .git
 .env
 ^data$
+^brew$
+Brewfile
+npm-globals\.txt
+uv-tools\.txt
+pipx-tools\.txt
+pip-globals\.txt
+rbenv-versions\.txt
+ruby-gems\.txt
+cargo-tools\.txt
+go-tools\.txt
+mac-settings\.sh
+setapp-migrate\.sh
+setup\.sh
+find_untracked_apps\.sh
+mac-migration-old-machine\.sh
+mac-migration-new-machine\.sh
+^LaunchAgents$
+^scripts$
+LICENSE
+README.*
+Makefile
 
 # GSD plugin - auto-managed, reinstalled via /gsd:update
 # (these live inside the 'claude' stow package at claude/.claude/)
