@@ -667,7 +667,7 @@ section "Phase 12: Fix Absolute Paths"
 
 step "Scanning for hardcoded user paths in Claude config..."
 CURRENT_USER=$(whoami)
-OLD_PATHS=$(grep -rn "/Users/" "$DOTFILES/claude/.claude/" 2>/dev/null | grep -v "/Users/$CURRENT_USER" | grep -v ".DS_Store" || true)
+OLD_PATHS=$(grep -rn "/Users/" "$DOTFILES/claude/.claude/" "$DOTFILES/Library/Application Support/Claude/" 2>/dev/null | grep -v "/Users/$CURRENT_USER" | grep -v ".DS_Store" || true)
 
 if [ -n "$OLD_PATHS" ]; then
   warn "Found paths with a different username:"
@@ -676,7 +676,7 @@ if [ -n "$OLD_PATHS" ]; then
   done
   OLD_USER=$(echo "$OLD_PATHS" | grep -oP '(?<=/Users/)[^/]+' | head -1)
   if [ -n "$OLD_USER" ] && confirm "Replace /Users/$OLD_USER with /Users/$CURRENT_USER?"; then
-    find "$DOTFILES/claude/.claude/" -type f -not -name ".DS_Store" -exec \
+    find "$DOTFILES/claude/.claude/" "$DOTFILES/Library/Application Support/Claude/" -type f -not -name ".DS_Store" -exec \
       sed -i '' "s|/Users/$OLD_USER|/Users/$CURRENT_USER|g" {} +
     success "Paths updated"
   fi
@@ -784,6 +784,9 @@ echo ""
 echo -e "  ${BOLD}Docker:${RESET}"
 echo "    [ ] Start Docker Desktop"
 echo "    [ ] Reconnect MCP Docker containers"
+echo ""
+echo -e "  ${BOLD}MCP Virtual Environments (~/.venvs/):${RESET}"
+echo "    [ ] Recreate docling-mcp venv (auto-created when MCP server is configured in Claude Desktop)"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════

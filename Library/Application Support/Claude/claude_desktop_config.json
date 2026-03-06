@@ -1,0 +1,32 @@
+{
+  "mcpServers": {
+    "MCP_DOCKER": {
+      "command": "docker",
+      "args": [
+        "mcp",
+        "gateway",
+        "run"
+      ]
+    },
+    "docling": {
+      "command": "uvx",
+      "args": [
+        "--from=docling-mcp",
+        "docling-mcp-server"
+      ]
+    }
+  },
+  "preferences": {
+    "menuBarEnabled": false,
+    "localAgentModeTrustedFolders": [
+      "/Users/michaelhenry/Library/Mobile Documents/com~apple~CloudDocs/Downloads/Devonthink"
+    ],
+    "coworkScheduledTasksEnabled": true,
+    "sidebarMode": "task",
+    "coworkWebSearchEnabled": true,
+    "ccdScheduledTasksEnabled": true,
+    "bypassPermissionsModeEnabled": true,
+    "dockBounceEnabled": true,
+    "launchPreviewPersistSession": true
+  }
+}

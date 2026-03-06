@@ -265,6 +265,23 @@ else
   skip "Claude Code config already in dotfiles"
 fi
 
+step "Claude Desktop config (MCP servers + preferences)..."
+CLAUDE_DESKTOP_SRC="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+CLAUDE_DESKTOP_DEST="$DOTFILES/Library/Application Support/Claude/claude_desktop_config.json"
+if [ -f "$CLAUDE_DESKTOP_SRC" ]; then
+  if [ ! -e "$CLAUDE_DESKTOP_DEST" ]; then
+    mkdir -p "$(dirname "$CLAUDE_DESKTOP_DEST")"
+    cp "$CLAUDE_DESKTOP_SRC" "$CLAUDE_DESKTOP_DEST"
+    success "Copied claude_desktop_config.json → dotfiles"
+  elif [ -L "$CLAUDE_DESKTOP_SRC" ]; then
+    skip "claude_desktop_config.json already stowed"
+  else
+    skip "claude_desktop_config.json already in dotfiles"
+  fi
+else
+  skip "Claude Desktop config not found"
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 4: Backup Launch Agents
 # ═══════════════════════════════════════════════════════════════════════════════
