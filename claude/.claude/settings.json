@@ -104,14 +104,23 @@
     "feature-dev@claude-plugins-official": true,
     "frontend-design@claude-plugins-official": true,
     "learning-output-style@claude-plugins-official": true,
-    "ralph-wiggum@claude-plugins-official": true,
     "security-guidance@claude-plugins-official": true,
     "swift-lsp@claude-plugins-official": true,
     "vercel@claude-plugins-official": true,
     "n8n-mcp-skills@n8n-mcp-skills": true,
     "taches-cc-resources@taches-cc-resources": true,
     "warp@claude-code-warp": true,
-    "impeccable@impeccable": true
+    "impeccable@impeccable": true,
+    "playwright-skill@playwright-skill": true,
+    "skill-creator@claude-plugins-official": true
+  },
+  "extraKnownMarketplaces": {
+    "playwright-skill": {
+      "source": {
+        "source": "github",
+        "repo": "lackeyjb/playwright-skill"
+      }
+    }
   },
   "alwaysThinkingEnabled": true,
   "skipDangerousModePermissionPrompt": true
