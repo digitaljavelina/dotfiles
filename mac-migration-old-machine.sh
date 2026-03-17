@@ -296,10 +296,30 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 4: Backup Launch Agents
+# PHASE 4: Backup Fonts to iCloud Drive
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 4: Backup Launch Agents"
+section "Phase 4: Backup Fonts to iCloud Drive"
+
+FONTS_SRC="$HOME/Library/Fonts"
+FONTS_DEST="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Migration/Fonts"
+
+if [ -d "$FONTS_SRC" ] && [ "$(ls -A "$FONTS_SRC" 2>/dev/null)" ]; then
+  FONT_COUNT=$(ls "$FONTS_SRC" | wc -l | tr -d ' ')
+  step "Copying $FONT_COUNT fonts to iCloud Drive (this may take a few minutes)..."
+  mkdir -p "$FONTS_DEST"
+  rsync -a --delete "$FONTS_SRC/" "$FONTS_DEST/"
+  success "Fonts backed up to iCloud Drive/Migration/Fonts"
+  info "Wait for iCloud to sync before running the new machine script"
+else
+  skip "No fonts found in ~/Library/Fonts"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 5: Backup Launch Agents
+# ═══════════════════════════════════════════════════════════════════════════════
+
+section "Phase 5: Backup Launch Agents"
 
 step "Scanning for custom launch agents..."
 LAUNCH_DIR="$HOME/Library/LaunchAgents"
@@ -329,10 +349,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 5: SSH Keys
+# PHASE 6: SSH Keys
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 5: SSH Keys"
+section "Phase 6: SSH Keys"
 
 step "Verifying SSH setup..."
 if [ -f "$DOTFILES/.ssh/config" ]; then
@@ -343,10 +363,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 6: Create Stow Ignore Files
+# PHASE 7: Create Stow Ignore Files
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 6: Stow Configuration"
+section "Phase 7: Stow Configuration"
 
 step "Creating .stow-local-ignore (root)..."
 STOW_IGNORE="$DOTFILES/.stow-local-ignore"
@@ -407,10 +427,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 7: Stow Everything
+# PHASE 8: Stow Everything
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 7: Stow Dotfiles"
+section "Phase 8: Stow Dotfiles"
 
 step "Running stow..."
 cd "$DOTFILES"
@@ -427,10 +447,10 @@ done
 stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (may already be stowed)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 8: Audit Claude Code Config (skills, commands, agents, hooks)
+# PHASE 9: Audit Claude Code Config (skills, commands, agents, hooks)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 8: Audit Claude Code Config"
+section "Phase 9: Audit Claude Code Config"
 
 # ── Helpers: find and migrate untracked items ────────────────────────────────
 
@@ -558,10 +578,10 @@ if [ "$TOTAL_MIGRATED" -gt 0 ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 9: Find Untracked Apps
+# PHASE 10: Find Untracked Apps
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 9: Find Untracked Apps"
+section "Phase 10: Find Untracked Apps"
 
 step "Scanning /Applications for apps not in Brewfile or Setapp..."
 
@@ -611,10 +631,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 10: Git Commit
+# PHASE 11: Git Commit
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 10: Commit and Push"
+section "Phase 11: Commit and Push"
 
 step "Checking for changes..."
 cd "$DOTFILES"
@@ -645,7 +665,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 11: Pre-Migration Checklist
+# PHASE 12: Pre-Migration Checklist
 # ═══════════════════════════════════════════════════════════════════════════════
 
 section "Pre-Migration Checklist"

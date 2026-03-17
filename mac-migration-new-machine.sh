@@ -248,10 +248,31 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 5: Install Apps via Brewfile
+# PHASE 5: Restore Fonts from iCloud Drive
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 5: Install Apps via Brewfile"
+section "Phase 5: Restore Fonts from iCloud Drive"
+
+FONTS_SRC="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Migration/Fonts"
+FONTS_DEST="$HOME/Library/Fonts"
+
+if [ -d "$FONTS_SRC" ] && [ "$(ls -A "$FONTS_SRC" 2>/dev/null)" ]; then
+  FONT_COUNT=$(ls "$FONTS_SRC" | wc -l | tr -d ' ')
+  step "Restoring $FONT_COUNT fonts from iCloud Drive..."
+  mkdir -p "$FONTS_DEST"
+  rsync -a "$FONTS_SRC/" "$FONTS_DEST/"
+  success "Fonts restored to ~/Library/Fonts"
+else
+  warn "No fonts found at iCloud Drive/Migration/Fonts"
+  info "If you haven't run the old machine script yet, fonts will be missing"
+  info "You can restore manually later: rsync -a \"$FONTS_SRC/\" \"$FONTS_DEST/\""
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 6: Install Apps via Brewfile
+# ═══════════════════════════════════════════════════════════════════════════════
+
+section "Phase 6: Install Apps via Brewfile"
 
 step "Installing Rosetta 2 (required for Intel-based casks)..."
 if /usr/bin/pgrep oahd &>/dev/null; then
@@ -274,10 +295,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 6: Install Dev Tools & Package Managers
+# PHASE 7: Install Dev Tools & Package Managers
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 6: Dev Tools & Package Managers"
+section "Phase 7: Dev Tools & Package Managers"
 
 # Claude Code
 step "Claude Code..."
@@ -411,10 +432,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 7: macOS System Preferences
+# PHASE 8: macOS System Preferences
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 7: macOS System Preferences"
+section "Phase 8: macOS System Preferences"
 
 step "Applying defaults..."
 
@@ -646,10 +667,10 @@ killall SystemUIServer 2>/dev/null || true
 success "Processes restarted — preferences applied"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 8: Restore Launch Agents
+# PHASE 9: Restore Launch Agents
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 8: Restore Launch Agents"
+section "Phase 9: Restore Launch Agents"
 
 LAUNCH_SRC="$DOTFILES/LaunchAgents"
 LAUNCH_DEST="$HOME/Library/LaunchAgents"
@@ -683,10 +704,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 9: SSH Config
+# PHASE 10: SSH Config
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 9: SSH Config"
+section "Phase 10: SSH Config"
 
 step "Verifying SSH config..."
 if [ -L "$HOME/.ssh/config" ]; then
@@ -701,10 +722,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 10: Setapp
+# PHASE 11: Setapp
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 10: Setapp"
+section "Phase 11: Setapp"
 
 if [ -f "$DOTFILES/scripts/setapp-migrate.sh" ] || [ -f "$DOTFILES/setapp-migrate.sh" ]; then
   echo ""
@@ -726,10 +747,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 11: Backblaze
+# PHASE 12: Backblaze
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 11: Backblaze"
+section "Phase 12: Backblaze"
 
 if ls /Applications/Backblaze.app &>/dev/null; then
   success "Backblaze is installed"
@@ -745,10 +766,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 12: Fix Absolute Paths (if username differs)
+# PHASE 13: Fix Absolute Paths (if username differs)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 12: Fix Absolute Paths"
+section "Phase 13: Fix Absolute Paths"
 
 step "Scanning for hardcoded user paths in Claude config..."
 CURRENT_USER=$(whoami)
@@ -770,10 +791,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 13: Claude Code Plugins
+# PHASE 14: Claude Code Plugins
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 13: Claude Code Plugins"
+section "Phase 14: Claude Code Plugins"
 
 echo ""
 echo -e "  ${DIM}Plugins are cached binaries and must be reinstalled inside Claude Code.${RESET}"
@@ -808,10 +829,10 @@ echo -e "  ${DIM}are recreated when you install the vercel plugin above.${RESET}
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 14: Re-authenticate Services
+# PHASE 15: Re-authenticate Services
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 14: Re-authenticate Services"
+section "Phase 15: Re-authenticate Services"
 
 echo ""
 echo -e "  ${DIM}These services need fresh authentication on the new machine:${RESET}"
@@ -825,10 +846,10 @@ echo "    fabric --setup             # Fabric API keys"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 15: Manual Steps Checklist
+# PHASE 16: Manual Steps Checklist
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 15: Manual Steps"
+section "Phase 16: Manual Steps"
 
 echo ""
 echo -e "  ${BOLD}These cannot be automated and need to be done by hand:${RESET}"
@@ -885,10 +906,10 @@ echo "    [ ] Recreate docling-mcp venv (auto-created when MCP server is configu
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 16: Sudo Commands (grouped at end)
+# PHASE 17: Sudo Commands (grouped at end)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 16: System Settings (requires sudo)"
+section "Phase 17: System Settings (requires sudo)"
 
 echo ""
 echo -e "  ${DIM}These commands need administrator privileges.${RESET}"
