@@ -584,19 +584,25 @@ fi
 # ── Mail ──────────────────────────────────────────────────────────────────────
 
 info "Mail..."
-defaults write com.apple.mail "DisableReplyAnimations" -bool true
-defaults write com.apple.mail "DisableSendAnimations" -bool true
-defaults write com.apple.mail "DisableInlineAttachmentViewing" -bool true
-defaults write com.apple.mail "PlayMailSounds" -bool false
-defaults write com.apple.mail "ConversationViewSortDescending" -bool false
-success "Mail configured"
+if defaults write com.apple.mail "DisableReplyAnimations" -bool true 2>/dev/null; then
+  defaults write com.apple.mail "DisableSendAnimations" -bool true 2>/dev/null
+  defaults write com.apple.mail "DisableInlineAttachmentViewing" -bool true 2>/dev/null
+  defaults write com.apple.mail "PlayMailSounds" -bool false 2>/dev/null
+  defaults write com.apple.mail "ConversationViewSortDescending" -bool false 2>/dev/null
+  success "Mail configured"
+else
+  warn "Mail preferences are sandboxed — configure manually in Mail → Settings"
+fi
 
 # ── TextEdit ──────────────────────────────────────────────────────────────────
 
 info "TextEdit..."
-defaults write com.apple.TextEdit "RichText" -bool false
-defaults write com.apple.TextEdit "SmartQuotes" -bool false
-success "TextEdit configured"
+if defaults write com.apple.TextEdit "RichText" -bool false 2>/dev/null; then
+  defaults write com.apple.TextEdit "SmartQuotes" -bool false 2>/dev/null
+  success "TextEdit configured"
+else
+  warn "TextEdit preferences are sandboxed — configure manually"
+fi
 
 # ── Activity Monitor ──────────────────────────────────────────────────────────
 
