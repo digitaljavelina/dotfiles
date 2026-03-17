@@ -434,8 +434,10 @@ fi
 step "Fabric AI framework..."
 if command -v go &>/dev/null; then
   if ! command -v fabric &>/dev/null; then
-    go install github.com/danielmiessler/fabric@latest
-    success "Fabric installed"
+    go install github.com/danielmiessler/fabric/cmd/fabric@latest || {
+      warn "Fabric install failed — install manually later"
+    }
+    success "Fabric step complete"
     info "Run 'fabric --setup' to configure API keys"
   else
     success "Fabric already installed"
