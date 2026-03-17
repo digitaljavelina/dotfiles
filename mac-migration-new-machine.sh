@@ -570,13 +570,16 @@ success "Mission Control configured"
 # ── Safari ────────────────────────────────────────────────────────────────────
 
 info "Safari..."
-defaults write com.apple.Safari "ShowFullURLInSmartSearchField" -bool true
-defaults write com.apple.Safari "AutoOpenSafeDownloads" -bool false
-defaults write com.apple.Safari "IncludeDevelopMenu" -bool true
-defaults write com.apple.Safari "WebKitDeveloperExtrasEnabledPreferenceKey" -bool true
-defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true
-defaults write com.apple.Safari "InstallExtensionUpdatesAutomatically" -bool true
-success "Safari configured"
+if defaults write com.apple.Safari "ShowFullURLInSmartSearchField" -bool true 2>/dev/null; then
+  defaults write com.apple.Safari "AutoOpenSafeDownloads" -bool false 2>/dev/null
+  defaults write com.apple.Safari "IncludeDevelopMenu" -bool true 2>/dev/null
+  defaults write com.apple.Safari "WebKitDeveloperExtrasEnabledPreferenceKey" -bool true 2>/dev/null
+  defaults write com.apple.Safari "com.apple.Safari.ContentPageGroupIdentifier.WebKit2DeveloperExtrasEnabled" -bool true 2>/dev/null
+  defaults write com.apple.Safari "InstallExtensionUpdatesAutomatically" -bool true 2>/dev/null
+  success "Safari configured"
+else
+  warn "Safari preferences are sandboxed — configure manually in Safari → Settings"
+fi
 
 # ── Mail ──────────────────────────────────────────────────────────────────────
 
