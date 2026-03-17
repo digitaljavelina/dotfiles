@@ -362,8 +362,11 @@ fi
 step "pip global packages..."
 if [ -f "$DOTFILES/pip-globals.txt" ] && command -v pip3 &>/dev/null; then
   if confirm "Install pip global packages? (review $DOTFILES/pip-globals.txt first)"; then
-    pip3 install -r "$DOTFILES/pip-globals.txt" 2>/dev/null
-    success "pip packages installed"
+    pip3 install --user -r "$DOTFILES/pip-globals.txt" 2>/dev/null || {
+      warn "pip3 install failed (PEP 668 — Homebrew Python blocks global installs)"
+      info "Consider moving these packages to uv-tools.txt instead"
+    }
+    success "pip packages step complete"
   else
     skip "pip packages — install manually later"
   fi
