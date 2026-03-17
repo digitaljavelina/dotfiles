@@ -710,7 +710,7 @@ if [ -d "$LAUNCH_SRC" ] && [ "$(ls -A "$LAUNCH_SRC" 2>/dev/null)" ]; then
   done
 
   # Fix paths if username differs
-  OLD_USER=$(grep -oP '(?<=/Users/)[^/]+' "$LAUNCH_SRC"/*.plist 2>/dev/null | head -1 | cut -d: -f2)
+  OLD_USER=$(grep -o '/Users/[^/]*' "$LAUNCH_SRC"/*.plist 2>/dev/null | head -1 | sed 's|.*/Users/||' | cut -d: -f1)
   CURRENT_USER=$(whoami)
   if [ -n "$OLD_USER" ] && [ "$OLD_USER" != "$CURRENT_USER" ]; then
     step "Fixing paths: /Users/$OLD_USER → /Users/$CURRENT_USER..."
@@ -804,7 +804,7 @@ if [ -n "$OLD_PATHS" ]; then
   echo "$OLD_PATHS" | head -10 | while IFS= read -r line; do
     echo -e "    ${DIM}$line${RESET}"
   done
-  OLD_USER=$(echo "$OLD_PATHS" | grep -oP '(?<=/Users/)[^/]+' | head -1)
+  OLD_USER=$(echo "$OLD_PATHS" | grep -o '/Users/[^/]*' | head -1 | sed 's|/Users/||')
   if [ -n "$OLD_USER" ] && confirm "Replace /Users/$OLD_USER with /Users/$CURRENT_USER?"; then
     find "$DOTFILES/claude/.claude/" "$DOTFILES/Library/Application Support/Claude/" -type f -not -name ".DS_Store" -exec \
       sed -i '' "s|/Users/$OLD_USER|/Users/$CURRENT_USER|g" {} +
