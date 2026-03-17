@@ -287,6 +287,7 @@ mas "URL Linker", id: 1289119450
 mas "Velja", id: 1607635845
 mas "WhatFont", id: 1437138382
 mas "WhatsApp", id: 310633997
+mas "Xcode", id: 497799835
 mas "XCFormat", id: 1165321484
 mas "xScope", id: 889428659
 vscode "aaron-bond.better-comments"

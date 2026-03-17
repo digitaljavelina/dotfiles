@@ -253,6 +253,14 @@ fi
 
 section "Phase 5: Restore Fonts from iCloud Drive"
 
+step "Ensuring Homebrew rsync is installed..."
+if ! brew list rsync &>/dev/null; then
+  brew install rsync
+  success "rsync installed"
+else
+  skip "rsync already installed"
+fi
+
 FONTS_SRC="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Migration/Fonts"
 FONTS_DEST="$HOME/Library/Fonts"
 
