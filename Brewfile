@@ -228,7 +228,6 @@ mas "DevCleaner", id: 1388020431
 mas "Developer", id: 640199958
 mas "Devly", id: 6759269801
 mas "DiskView", id: 6627346631
-mas "Drafts", id: 1435957248
 mas "Duplicate Photos Fixer Pro", id: 963642514
 mas "Final Cut Pro", id: 424389933
 mas "Formatter", id: 1190228172
@@ -242,17 +241,14 @@ mas "JSON Helper", id: 453114608
 mas "Kaleidoscope", id: 587512244
 mas "Keynote", id: 409183694
 mas "Keyword Search", id: 1558453954
-mas "Laminar", id: 0
 mas "Levelator", id: 1493326487
 mas "Location Helper", id: 488536386
 mas "Logic Pro", id: 634148309
 mas "Mactracker", id: 430255202
-mas "Marked 3", id: 0
 mas "Mastonaut", id: 1450757574
 mas "Moom Classic", id: 419330170
 mas "Motion", id: 434290957
 mas "Name Mangler 3", id: 603637384
-mas "Napkin", id: 581789185
 mas "Numbers", id: 409203825
 mas "Obsidian Web Clipper", id: 6720708363
 mas "OneTab", id: 1540160809
