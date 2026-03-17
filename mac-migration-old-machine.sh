@@ -158,12 +158,16 @@ else
   skip "rbenv not installed"
 fi
 
-# cargo
-step "Rust tools (cargo)..."
+# cargo / rustup
+step "Rust tools (rustup + cargo)..."
 if command -v cargo &>/dev/null; then
   cargo install --list 2>/dev/null | grep -E "^[a-z]" | awk '{print $1}' > "$DOTFILES/cargo-tools.txt"
   COUNT=$(wc -l < "$DOTFILES/cargo-tools.txt" | tr -d ' ')
   success "Exported $COUNT tools to cargo-tools.txt"
+  if command -v rustup &>/dev/null; then
+    RUST_VER=$(rustup show active-toolchain 2>/dev/null | awk '{print $1}')
+    info "Active toolchain: $RUST_VER (rustup will install stable on new machine)"
+  fi
 else
   skip "cargo not installed"
 fi
@@ -253,17 +257,26 @@ fi
 
 step "Claude Code config..."
 CLAUDE_DEST="$DOTFILES/claude/.claude"
-if [ ! -d "$CLAUDE_DEST" ]; then
-  mkdir -p "$CLAUDE_DEST"
-  for item in settings.json commands skills agents hooks; do
-    if [ -e "$HOME/.claude/$item" ]; then
-      cp -R "$HOME/.claude/$item" "$CLAUDE_DEST/$item"
-      success "Copied .claude/$item"
-    fi
-  done
+mkdir -p "$CLAUDE_DEST"
+
+# settings.json — copy if not already stowed
+if [ -f "$HOME/.claude/settings.json" ] && [ ! -L "$HOME/.claude/settings.json" ]; then
+  cp "$HOME/.claude/settings.json" "$CLAUDE_DEST/settings.json"
+  success "Copied .claude/settings.json"
+elif [ -L "$HOME/.claude/settings.json" ]; then
+  success ".claude/settings.json already stowed"
 else
-  skip "Claude Code config already in dotfiles"
+  skip ".claude/settings.json not found"
 fi
+
+# Directories: sync any new items not yet in dotfiles
+# (Phase 8 will handle the interactive audit; this catches initial setup)
+for item in commands skills agents hooks; do
+  if [ -d "$HOME/.claude/$item" ]; then
+    mkdir -p "$CLAUDE_DEST/$item"
+    success ".claude/$item directory present"
+  fi
+done
 
 step "Claude Desktop config (MCP servers + preferences)..."
 CLAUDE_DESKTOP_SRC="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
@@ -362,6 +375,8 @@ rbenv-versions\.txt
 ruby-gems\.txt
 cargo-tools\.txt
 go-tools\.txt
+untracked-apps\.md
+Safari Desktop Picture\.jpg
 mac-settings\.sh
 setapp-migrate\.sh
 setup\.sh
@@ -412,10 +427,141 @@ done
 stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (may already be stowed)"
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 8: Find Untracked Apps
+# PHASE 8: Audit Claude Code Config (skills, commands, agents, hooks)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 8: Find Untracked Apps"
+section "Phase 8: Audit Claude Code Config"
+
+# ── Helpers: find and migrate untracked items ────────────────────────────────
+
+# Items provided by plugins — recreated by /install
+PLUGIN_ITEMS=(
+  "deploy-to-vercel"
+  "vercel-composition-patterns"
+  "vercel-react-best-practices"
+  "vercel-react-native-skills"
+  "web-design-guidelines"
+)
+
+is_plugin_item() {
+  local name="$1"
+  for pi in "${PLUGIN_ITEMS[@]}"; do
+    [[ "$name" == "$pi" ]] && return 0
+  done
+  return 1
+}
+
+# GSD items are auto-managed by /gsd:update — skip them
+is_gsd_item() {
+  local name="$1"
+  [[ "$name" == gsd-* || "$name" == "gsd" || "$name" == "get-shit-done" ]] && return 0
+  return 1
+}
+
+find_untracked() {
+  local item_type="$1"  # skills, commands, agents, hooks
+  local live_dir="$HOME/.claude/$item_type"
+  local repo_dir="$DOTFILES/claude/.claude/$item_type"
+
+  FOUND_UNTRACKED=()
+  [ -d "$live_dir" ] || return
+
+  # Check subdirectories (skills/my-skill/, commands/my-cmd/, etc.)
+  for entry in "$live_dir"/*/; do
+    [ -d "$entry" ] || continue
+    local name=$(basename "$entry")
+
+    # Skip if directory itself is a symlink
+    [ -L "$entry" ] && continue
+
+    # Skip if leaf files inside are symlinked (stow --no-folding creates real dirs with symlinked files)
+    local any_symlink=false
+    for f in "$entry"/*; do
+      [ -L "$f" ] && any_symlink=true && break
+    done
+    $any_symlink && continue
+
+    # Skip plugin-provided and GSD-managed items
+    is_plugin_item "$name" && continue
+    is_gsd_item "$name" && continue
+
+    FOUND_UNTRACKED+=("$name")
+  done
+
+  # Check loose files (hooks may have individual files, not subdirs)
+  for entry in "$live_dir"/*; do
+    [ -f "$entry" ] || continue
+    [ -L "$entry" ] && continue
+    local name=$(basename "$entry")
+    is_gsd_item "$name" && continue
+    # Check if already in repo
+    [ -e "$repo_dir/$name" ] && continue
+    FOUND_UNTRACKED+=("$name")
+  done
+}
+
+migrate_untracked() {
+  local item_type="$1"
+  local live_dir="$HOME/.claude/$item_type"
+  local repo_dir="$DOTFILES/claude/.claude/$item_type"
+  local migrated=0
+
+  mkdir -p "$repo_dir"
+
+  for name in "${FOUND_UNTRACKED[@]}"; do
+    local src="$live_dir/$name"
+    local dest="$repo_dir/$name"
+    # Remove nested .git directories
+    [ -d "$src/.git" ] && rm -rf "$src/.git"
+    if [ -e "$dest" ]; then
+      warn "$name already in dotfiles — skipping"
+      continue
+    fi
+    mv "$src" "$dest"
+    success "Moved $item_type/$name → dotfiles"
+    ((migrated++))
+  done
+
+  MIGRATE_COUNT=$migrated
+}
+
+# ── Audit each config directory ──────────────────────────────────────────────
+
+TOTAL_MIGRATED=0
+
+for ITEM_TYPE in skills commands agents hooks; do
+  step "Checking for untracked ${ITEM_TYPE}..."
+
+  find_untracked "$ITEM_TYPE"
+
+  if [ ${#FOUND_UNTRACKED[@]} -gt 0 ]; then
+    warn "Found ${#FOUND_UNTRACKED[@]} untracked ${ITEM_TYPE}:"
+    for s in "${FOUND_UNTRACKED[@]}"; do
+      echo -e "      ${YELLOW}⚠  $s${RESET}"
+    done
+    echo ""
+    if confirm "Move these ${ITEM_TYPE} into dotfiles?"; then
+      migrate_untracked "$ITEM_TYPE"
+      TOTAL_MIGRATED=$((TOTAL_MIGRATED + MIGRATE_COUNT))
+    else
+      warn "Skipped — these ${ITEM_TYPE} won't survive migration"
+    fi
+  else
+    success "All ${ITEM_TYPE} are tracked in dotfiles or provided by plugins"
+  fi
+done
+
+# Restow if anything was migrated
+if [ "$TOTAL_MIGRATED" -gt 0 ]; then
+  cd "$DOTFILES" && stow --no-folding claude 2>/dev/null
+  success "Restowed claude package ($TOTAL_MIGRATED new item(s))"
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 9: Find Untracked Apps
+# ═══════════════════════════════════════════════════════════════════════════════
+
+section "Phase 9: Find Untracked Apps"
 
 step "Scanning /Applications for apps not in Brewfile or Setapp..."
 
@@ -443,16 +589,32 @@ if [ ${#UNTRACKED[@]} -gt 0 ]; then
   for app in "${UNTRACKED[@]}"; do
     echo -e "      ${DIM}- $app${RESET}"
   done
-  info "Review these and add to Brewfile or note for manual install"
+
+  # Write to file for reference on new machine
+  UNTRACKED_FILE="$DOTFILES/untracked-apps.md"
+  {
+    echo "# Untracked Apps"
+    echo ""
+    echo "Apps found in /Applications that are not in the Brewfile or Setapp."
+    echo "Review and either add to Brewfile or install manually on the new machine."
+    echo ""
+    echo "Generated: $(date +%Y-%m-%d)"
+    echo ""
+    for app in "${UNTRACKED[@]}"; do
+      echo "- $app"
+    done
+  } > "$UNTRACKED_FILE"
+  success "Saved list to $UNTRACKED_FILE"
+  info "Review and add to Brewfile or note for manual install"
 else
   success "All apps appear to be tracked in Brewfile or Setapp"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 9: Git Commit
+# PHASE 10: Git Commit
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 9: Commit and Push"
+section "Phase 10: Commit and Push"
 
 step "Checking for changes..."
 cd "$DOTFILES"
@@ -483,7 +645,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 10: Pre-Migration Checklist
+# PHASE 11: Pre-Migration Checklist
 # ═══════════════════════════════════════════════════════════════════════════════
 
 section "Pre-Migration Checklist"
@@ -496,12 +658,15 @@ echo "    [x] Brewfile exported"
 echo "    [x] Package manager inventories saved"
 echo "    [x] Dotfiles moved and stowed"
 echo "    [x] Launch agents backed up"
+echo "    [x] Claude Code config audited (skills, commands, agents, hooks)"
 echo "    [x] Changes committed to git"
 echo ""
 echo -e "  ${BOLD}Manual steps remaining:${RESET}"
 echo "    [ ] 1Password installed on new machine with SSH Agent enabled"
 echo "    [ ] Dotfiles repo pushed to remote (if not done above)"
 echo "    [ ] Verify new machine is fully set up and working"
+echo "    [ ] Obsidian CLI enabled on new machine (Settings → Advanced → CLI)"
+echo "        If 'command not found': sudo ln -sf /Applications/Obsidian.app/Contents/MacOS/Obsidian /usr/local/bin/obsidian"
 echo ""
 echo -e "  ${BOLD}${YELLOW}Decommission (do LAST, after new machine is verified):${RESET}"
 echo "    [ ] Deauthorize Find My Mac"

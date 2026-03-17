@@ -193,6 +193,13 @@ for pkg in */; do
 done
 
 step "Stowing root dotfiles..."
+# On a fresh Mac, .zprofile exists (Homebrew installer creates it) and .zshrc
+# may exist from Oh My Zsh. Use --adopt to pull these into the repo, then
+# git checkout to restore our versions over the adopted defaults.
+cp .stow-local-ignore .stow-local-ignore.bak 2>/dev/null || true
+stow . --no-folding --adopt 2>/dev/null || true
+git checkout -- . 2>/dev/null || true
+cp .stow-local-ignore.bak .stow-local-ignore 2>/dev/null && rm .stow-local-ignore.bak 2>/dev/null || true
 stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (check manually)"
 
 
@@ -214,6 +221,32 @@ else
   warn ".claude/settings.json is not a symlink"
 fi
 
+step "Verifying Claude Code skills..."
+SKILLS_DIR="$HOME/.claude/skills"
+SKILLS_REPO="$DOTFILES/claude/.claude/skills"
+if [ -d "$SKILLS_REPO" ]; then
+  SKILL_COUNT=0
+  SKILL_OK=0
+  for skill_dir in "$SKILLS_REPO"/*/; do
+    [ -d "$skill_dir" ] || continue
+    skill_name=$(basename "$skill_dir")
+    ((SKILL_COUNT++))
+    skill_file="$SKILLS_DIR/$skill_name/SKILL.md"
+    if [ -L "$skill_file" ]; then
+      ((SKILL_OK++))
+    else
+      warn "Skill '$skill_name' not symlinked"
+    fi
+  done
+  if [ "$SKILL_COUNT" -gt 0 ]; then
+    success "$SKILL_OK/$SKILL_COUNT custom skills restored via stow"
+  else
+    info "No custom skills in dotfiles repo"
+  fi
+else
+  info "No skills directory in dotfiles"
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 5: Install Apps via Brewfile
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -224,7 +257,7 @@ step "Installing from Brewfile..."
 info "This may take a while — formulae, casks, fonts, and Mac App Store apps"
 
 if [ -f "$DOTFILES/Brewfile" ]; then
-  brew bundle install --file="$DOTFILES/Brewfile" --no-lock 2>&1 | while IFS= read -r line; do
+  brew bundle install --file="$DOTFILES/Brewfile" 2>&1 | while IFS= read -r line; do
     echo -e "    ${DIM}$line${RESET}"
   done
   success "Brewfile installation complete"
@@ -323,6 +356,36 @@ if command -v rbenv &>/dev/null; then
   fi
 else
   skip "rbenv not installed"
+fi
+
+# Rust via rustup + cargo packages
+step "Rust (rustup + cargo)..."
+if command -v rustup &>/dev/null; then
+  success "rustup already installed"
+else
+  step "Installing rustup..."
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y 2>&1 | tail -3
+  source "$HOME/.cargo/env" 2>/dev/null || true
+  success "rustup installed (stable toolchain)"
+fi
+
+if [ -f "$DOTFILES/cargo-tools.txt" ] && command -v cargo &>/dev/null; then
+  COUNT=$(wc -l < "$DOTFILES/cargo-tools.txt" | tr -d ' ')
+  if [ "$COUNT" -gt 0 ]; then
+    if confirm "Install $COUNT cargo packages? (compiles from source — may take a while)"; then
+      while IFS= read -r tool; do
+        [ -z "$tool" ] && continue
+        cargo install "$tool" 2>/dev/null && info "Installed $tool" || warn "Failed to install $tool"
+      done < "$DOTFILES/cargo-tools.txt"
+      success "Cargo tools installed"
+    else
+      skip "Cargo tools — install manually later: while read tool; do cargo install \"\$tool\"; done < ~/.dotfiles/cargo-tools.txt"
+    fi
+  else
+    skip "cargo-tools.txt is empty"
+  fi
+else
+  skip "No cargo-tools.txt or cargo not available"
 fi
 
 # Fabric
@@ -552,6 +615,20 @@ defaults write com.apple.CrashReporter "DialogType" -string "none"
 defaults write NSGlobalDomain "NSCloseAlwaysConfirmsChanges" -bool false
 success "Miscellaneous configured"
 
+# ── Desktop Wallpaper ────────────────────────────────────────────────────────
+
+info "Desktop wallpaper..."
+WALLPAPER_SRC="$DOTFILES/Safari Desktop Picture.jpg"
+if [ -f "$WALLPAPER_SRC" ]; then
+  WALLPAPER_DEST="$HOME/Pictures/Safari Desktop Picture.jpg"
+  mkdir -p "$HOME/Pictures"
+  cp "$WALLPAPER_SRC" "$WALLPAPER_DEST"
+  osascript -e "tell application \"System Events\" to tell every desktop to set picture to \"$WALLPAPER_DEST\""
+  success "Wallpaper set from dotfiles"
+else
+  skip "No wallpaper image found at $WALLPAPER_SRC"
+fi
+
 # ── Restart affected processes ────────────────────────────────────────────────
 
 step "Restarting Dock, Finder, SystemUIServer..."
@@ -710,9 +787,16 @@ echo "    /install n8n-mcp-skills@n8n-mcp-skills"
 echo "    /install taches-cc-resources@taches-cc-resources"
 echo "    /install warp@claude-code-warp"
 echo "    /install impeccable@impeccable"
+echo "    /install skill-creator@anthropic-skills"
+echo "    /install playwright-skill@anthropic-skills"
 echo ""
 echo -e "  ${BOLD}Project-scoped (run from within the project):${RESET}"
 echo "    /install php-lsp@claude-plugins-official"
+echo ""
+echo -e "  ${DIM}Note: Custom skills (audit, excalidraw, firecrawl, tutorial, etc.)${RESET}"
+echo -e "  ${DIM}are restored automatically by stow in Phase 4.${RESET}"
+echo -e "  ${DIM}Plugin-provided skills (vercel-*, web-design-guidelines, deploy-to-vercel)${RESET}"
+echo -e "  ${DIM}are recreated when you install the vercel plugin above.${RESET}"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -780,6 +864,9 @@ echo -e "  ${BOLD}Obsidian:${RESET}"
 echo "    [ ] Vault syncs from iCloud automatically"
 echo "    [ ] Open vault → trust community plugins"
 echo "    [ ] Reconfigure obsidian-local-rest-api (set API key)"
+echo "    [ ] Enable CLI: Settings → Advanced → Command line interface"
+echo "        Test: obsidian --help"
+echo "        If 'command not found': sudo ln -sf /Applications/Obsidian.app/Contents/MacOS/Obsidian /usr/local/bin/obsidian"
 echo ""
 echo -e "  ${BOLD}Docker:${RESET}"
 echo "    [ ] Start Docker Desktop"
@@ -836,7 +923,7 @@ echo "    [x] Xcode CLT, Homebrew, Stow installed"
 echo "    [x] Oh My Zsh installed"
 echo "    [x] Dotfiles stowed (shell, git, ghostty, claude)"
 echo "    [x] Brewfile apps installed (formulae, casks, fonts, mas)"
-echo "    [x] Dev tools restored (npm, uv, pipx, pip, rbenv, fabric)"
+echo "    [x] Dev tools restored (npm, uv, pipx, pip, rbenv, rustup/cargo, fabric)"
 echo "    [x] macOS preferences applied"
 echo "    [x] Launch agents restored"
 echo "    [x] Absolute paths fixed"
