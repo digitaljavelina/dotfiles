@@ -296,8 +296,8 @@ info "This may take a while — formulae, casks, fonts, and Mac App Store apps"
 if [ -f "$DOTFILES/Brewfile" ]; then
   brew bundle install --file="$DOTFILES/Brewfile" 2>&1 | while IFS= read -r line; do
     echo -e "    ${DIM}$line${RESET}"
-  done
-  success "Brewfile installation complete"
+  done || true
+  success "Brewfile installation complete (check output above for any failures)"
 else
   error "No Brewfile found at $DOTFILES/Brewfile"
 fi

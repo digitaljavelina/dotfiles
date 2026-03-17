@@ -213,8 +213,6 @@ mas "AdaptivityA", id: 1054670022
 mas "AlignmentForXcode", id: 1168397789
 mas "Amphetamine", id: 937984704
 mas "Attributed String Creator Pro", id: 730928349
-mas "Aurora", id: 1493055655
-mas "Bazinga!", id: 1503241323
 mas "Blackmagic Disk Speed Test", id: 425264550
 mas "Byword", id: 420212497
 mas "Capo", id: 696977615
@@ -238,7 +236,6 @@ mas "Hacktivate", id: 6748286602
 mas "Harvest", id: 506189836
 mas "iPulse", id: 1028916583
 mas "JSON Helper", id: 453114608
-mas "Kaleidoscope", id: 587512244
 mas "Keynote", id: 409183694
 mas "Keyword Search", id: 1558453954
 mas "Levelator", id: 1493326487
