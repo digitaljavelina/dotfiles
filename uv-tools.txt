@@ -1,4 +1,5 @@
 audiblez
 docling-mcp
 notebooklm-mcp-cli
+meson
 pre-commit
