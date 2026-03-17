@@ -248,6 +248,7 @@ mas "Levelator", id: 1493326487
 mas "Location Helper", id: 488536386
 mas "Logic Pro", id: 634148309
 mas "Mactracker", id: 430255202
+mas "Marked 3", id: 0
 mas "Mastonaut", id: 1450757574
 mas "Moom Classic", id: 419330170
 mas "Motion", id: 434290957
