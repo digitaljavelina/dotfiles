@@ -253,6 +253,14 @@ fi
 
 section "Phase 5: Install Apps via Brewfile"
 
+step "Installing Rosetta 2 (required for Intel-based casks)..."
+if /usr/bin/pgrep oahd &>/dev/null; then
+  skip "Rosetta 2 already installed"
+else
+  sudo softwareupdate --install-rosetta --agree-to-license
+  success "Rosetta 2 installed"
+fi
+
 step "Installing from Brewfile..."
 info "This may take a while — formulae, casks, fonts, and Mac App Store apps"
 
