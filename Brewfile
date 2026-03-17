@@ -4,6 +4,7 @@ tap "buo/cask-upgrade"
 tap "cameroncooke/axe"
 tap "finestructure/tap"
 tap "gromgit/brewtils"
+tap "supabase/tap"
 tap "swiftdocorg/formulae"
 tap "twostraws/brew"
 tap "updatest/tap", "https://github.com/updatest/tap.git"
@@ -98,6 +99,7 @@ brew "zsh-syntax-highlighting"
 brew "arimxyer/tap/models"
 brew "cameroncooke/axe/axe"
 brew "gromgit/brewtils/taproom"
+brew "supabase/tap/supabase"
 brew "twostraws/brew/appletime"
 brew "twostraws/brew/sitrep"
 cask "1password"
@@ -129,7 +131,6 @@ cask "deckset"
 cask "dexed"
 cask "discord"
 cask "dockdoor"
-cask "docker-desktop"
 cask "drawio"
 cask "epic-games"
 cask "etrecheckpro"
@@ -247,7 +248,6 @@ mas "Levelator", id: 1493326487
 mas "Location Helper", id: 488536386
 mas "Logic Pro", id: 634148309
 mas "Mactracker", id: 430255202
-mas "Marked 3", id: 0
 mas "Mastonaut", id: 1450757574
 mas "Moom Classic", id: 419330170
 mas "Motion", id: 434290957
@@ -324,6 +324,8 @@ vscode "steoates.autoimport"
 vscode "swiftlang.swift-vscode"
 vscode "vscode-icons-team.vscode-icons"
 go "github.com/danielmiessler/fabric/cmd/fabric"
+cargo "linear-cli"
 uv "audiblez", with: ["pip"]
 uv "docling-mcp"
+uv "notebooklm-mcp-cli"
 uv "pre-commit"
