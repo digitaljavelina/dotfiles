@@ -387,8 +387,10 @@ if command -v rbenv &>/dev/null; then
       success "Ruby $RUBY_VER installed and set as global"
 
       if confirm "Install gems? (github-pages covers most Jekyll gems)"; then
-        gem install github-pages 2>/dev/null
-        success "github-pages gem (and dependencies) installed"
+        gem install github-pages 2>/dev/null || {
+          warn "gem install github-pages failed — install manually later"
+        }
+        success "github-pages gem step complete"
       fi
     else
       skip "No Ruby version to install (system Ruby only)"
