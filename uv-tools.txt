@@ -1,3 +1,4 @@
 audiblez
 docling-mcp
+notebooklm-mcp-cli
 pre-commit

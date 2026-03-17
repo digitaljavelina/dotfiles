@@ -1,3 +1,7 @@
 @byterover/cipher
 @openai/codex
+@playwright/cli
+clawdbot
+firecrawl-cli
 happy-coder
+vercel
