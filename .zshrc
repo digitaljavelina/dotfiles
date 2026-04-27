@@ -69,3 +69,6 @@ export PATH="$PATH:/Users/michaelhenry/.lmstudio/bin"
 # lmstudio environment variables in claude code
 # export ANTHROPIC_BASE_URL=http://localhost:1234
 # export ANTHROPIC_AUTH_TOKEN=lmstudio
+
+# 1Password SSH agent forwarding
+export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
