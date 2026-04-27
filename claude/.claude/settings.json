@@ -31,23 +31,13 @@
     "defaultMode": "dontAsk"
   },
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "npx vibe-log-cli analyze-prompt --silent --stdin"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "matcher": "startup|clear",
         "hooks": [
           {
             "type": "command",
-            "command": "npx vibe-log-cli send --silent --background --hook-trigger=sessionstart --hook-version=1.0.0 --all"
+            "command": "bash ~/.claude/hooks/vibe-log-hook.sh sessionstart"
           }
         ]
       },
@@ -66,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx vibe-log-cli send --silent --background --hook-trigger=precompact --hook-version=1.0.0 --all"
+            "command": "bash ~/.claude/hooks/vibe-log-hook.sh precompact"
           }
         ]
       }
@@ -77,7 +67,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx vibe-log-cli send --silent --background --hook-trigger=sessionend --hook-version=1.0.0 --all"
+            "command": "bash ~/.claude/hooks/vibe-log-hook.sh sessionend"
           }
         ]
       }
