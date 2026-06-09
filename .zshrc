@@ -25,6 +25,7 @@ alias zshrc='code ~/.zshrc'
 
 # Claude Code aliases
 alias yolo='claude --dangerously-skip-permissions'
+alias syncsettings='~/.dotfiles/scripts/sync-claude-settings.sh'
 
 # VISUAL/EDITOR (point to a wrapper that runs `code -w` or your preferred editor)
 export EDITOR="/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code -w"
