@@ -164,6 +164,14 @@
             "timeout": 60
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmp -s \"$HOME/.claude/settings.json\" \"$HOME/.dotfiles/claude/.claude/settings.json\" 2>/dev/null || cp -f \"$HOME/.claude/settings.json\" \"$HOME/.dotfiles/claude/.claude/settings.json\" 2>/dev/null; exit 0"
+          }
+        ]
       }
     ],
     "SessionStart": [
