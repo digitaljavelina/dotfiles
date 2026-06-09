@@ -1,6 +1,9 @@
 {
+  "cleanupPeriodDays": 90,
   "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_CODE_NEW_INIT": "1",
+    "ENABLE_CLAUDEAI_MCP_SERVERS": "false"
   },
   "permissions": {
     "allow": [
@@ -9,7 +12,6 @@
       "Bash(git reset:*)",
       "Bash(git checkout:*)",
       "Bash(git add:*)",
-      "Bash(git commit -m \"$(cat <<''EOF''\nUpdate Minimal Mistakes theme core files from upstream\n\nUpdated theme directories (_includes, _layouts, _sass, assets) to latest \nupstream version from mmistakes/minimal-mistakes master branch.\n\nNotable updates include:\n- New comment providers (giscus, utterances, staticman_v2)\n- New analytics provider (google-gtag)\n- Enhanced search functionality\n- New layout types (categories, tags, posts, search)\n- Updated JavaScript libraries and Sass files\n- Copyright footer functionality\n- Schema markup support\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git remote set-url:*)",
       "Bash(mkdir:*)",
       "Bash(curl:*)",
@@ -21,31 +23,67 @@
       "Bash(rbenv:*)",
       "Bash(gem uninstall:*)",
       "Bash(ruby:*)",
-      "Bash(git -C /Users/michaelhenry/Documents/DJ-WP-site log --oneline -10)",
-      "Bash(git -C /Users/michaelhenry/Documents/DJ-WP-site remote -v)",
       "Bash(xcrun:*)",
-      "Bash(xcodebuild:*)"
+      "Bash(xcodebuild:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(python3 -c \"import sys,json; [print\\(m['name']\\) for m in json.load\\(sys.stdin\\)['models']]\")",
+      "Bash(python3 -c \"import sys,json; [print\\(m['id']\\) for m in json.load\\(sys.stdin\\)['data']]\")",
+      "mcp__pencil",
+      "Bash(npx tsc *)",
+      "Bash(node hooks/read_hook.js)",
+      "Bash(echo \"exit=$?\")"
     ],
-    "deny": [],
+    "deny": [
+      "Bash(rm -rf:*)",
+      "Bash(rm -fr:*)",
+      "Bash(sudo:*)",
+      "Bash(dd:*)",
+      "Bash(chmod -R 777:*)",
+      "Bash(find:* -delete:*)",
+      "Bash(mkfs:*)"
+    ],
     "ask": [],
     "defaultMode": "dontAsk"
   },
+  "model": "opus[1m]",
+  "disabledMcpjsonServers": [],
   "hooks": {
-    "SessionStart": [
+    "PermissionRequest": [
       {
-        "matcher": "startup|clear",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/hooks/vibe-log-hook.sh sessionstart"
+            "command": "cmd=$(jq -r '.tool_input.command // \"\"'); case \"$cmd\" in git\\ status*|git\\ log*|git\\ diff*|npm\\ test*|npm\\ run\\ lint*) echo '{\"behavior\": \"allow\"}'; exit 0;; *) exit 0;; esac"
           }
         ]
       },
       {
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-check-update.js\""
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path'); npx prettier --find-config-path \"$f\" >/dev/null 2>&1 && npx prettier --write \"$f\"; exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
           }
         ]
       }
@@ -56,28 +94,148 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/hooks/vibe-log-hook.sh precompact"
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-dangerous.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/protect-files.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/homebrew/bin/python3 \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/anti_response_patterns.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
           }
         ]
       }
     ],
     "SessionEnd": [
       {
-        "matcher": "clear|logout|prompt_input_exit|other",
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/hooks/vibe-log-hook.sh sessionend"
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
           }
         ]
-      }
-    ],
-    "PostToolUse": [
+      },
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-context-monitor.js\""
+            "command": "python3 ~/.claude-chat/sync_chats.py --once",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"Reminder: $(cat ~/.claude/critical-context.txt)\"; exit 0"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$HOME/Documents/Projects/claude/claude-skills-private/scripts/generate-recreate-setup.py\" >/dev/null 2>&1; exit 0"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/opt/homebrew/bin/python3 \"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/anti_response_patterns.py\"",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/insights-auto-summary.sh"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_CONFIG_DIR:-$HOME/.claude}/hooks/notchi-hook.sh\""
           }
         ]
       }
@@ -85,33 +243,103 @@
   },
   "statusLine": {
     "type": "command",
-    "command": "node \"/Users/michaelhenry/.claude/hooks/gsd-statusline.js\""
+    "command": "~/.claude/statusline.sh"
   },
   "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true,
+    "claude-usage@digitaljavelina-plugins": true,
+    "claudex@promptadvisers-claudex": true,
+    "code-simplifier@claude-plugins-official": false,
+    "codex@openai-codex": true,
     "commit-commands@claude-plugins-official": true,
-    "context7@claude-plugins-official": true,
+    "document-skills@anthropic-agent-skills": true,
     "explanatory-output-style@claude-plugins-official": true,
     "feature-dev@claude-plugins-official": true,
-    "frontend-design@claude-plugins-official": true,
-    "learning-output-style@claude-plugins-official": true,
-    "security-guidance@claude-plugins-official": true,
-    "swift-lsp@claude-plugins-official": true,
-    "vercel@claude-plugins-official": true,
-    "n8n-mcp-skills@n8n-mcp-skills": true,
-    "taches-cc-resources@taches-cc-resources": true,
-    "warp@claude-code-warp": true,
+    "frontend-slides@frontend-slides": true,
     "impeccable@impeccable": true,
+    "last30days@last30days-skill": true,
+    "learning-output-style@claude-plugins-official": true,
+    "mempalace@mempalace": true,
+    "migrate-ai-config@digitaljavelina-plugins": true,
     "playwright-skill@playwright-skill": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "security-guidance@claude-plugins-official": true,
+    "setup-audit@digitaljavelina-plugins": true,
     "skill-creator@claude-plugins-official": true
   },
   "extraKnownMarketplaces": {
+    "anthropic-agent-skills": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/skills"
+      }
+    },
+    "compound-engineering-plugin": {
+      "source": {
+        "source": "github",
+        "repo": "EveryInc/compound-engineering-plugin"
+      }
+    },
+    "digitaljavelina-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "digitaljavelina/claude-plugins"
+      },
+      "autoUpdate": true
+    },
+    "frontend-slides": {
+      "source": {
+        "source": "github",
+        "repo": "zarazhangrui/frontend-slides"
+      }
+    },
+    "impeccable": {
+      "source": {
+        "source": "github",
+        "repo": "pbakaus/impeccable"
+      }
+    },
+    "last30days-skill": {
+      "source": {
+        "source": "github",
+        "repo": "mvanhorn/last30days-skill"
+      }
+    },
+    "mempalace": {
+      "source": {
+        "source": "github",
+        "repo": "milla-jovovich/mempalace"
+      }
+    },
+    "openai-codex": {
+      "source": {
+        "source": "github",
+        "repo": "openai/codex-plugin-cc"
+      }
+    },
     "playwright-skill": {
       "source": {
         "source": "github",
         "repo": "lackeyjb/playwright-skill"
+      },
+      "autoUpdate": true
+    },
+    "promptadvisers-claudex": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/michaelhenry/.claude/plugins/claudex"
+      }
+    },
+    "digitaljavelina-private-plugins": {
+      "source": {
+        "source": "github",
+        "repo": "digitaljavelina/claude-skills-private"
       }
     }
   },
   "alwaysThinkingEnabled": true,
-  "skipDangerousModePermissionPrompt": true
+  "autoMemoryEnabled": false,
+  "autoDreamEnabled": false,
+  "skipDangerousModePermissionPrompt": true,
+  "agentPushNotifEnabled": true
 }
