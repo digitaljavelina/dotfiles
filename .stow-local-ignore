@@ -1,4 +1,5 @@
 \.DS_Store
+.*\.bak$
 .git
 .env
 ^data$
@@ -24,11 +25,7 @@ LICENSE
 README.*
 Makefile
 
-# GSD plugin - auto-managed, reinstalled via /gsd:update
-# (these live inside the 'claude' stow package at claude/.claude/)
-claude/\.claude/get-shit-done
-claude/\.claude/gsd-file-manifest.json
-claude/\.claude/package.json
-claude/\.claude/agents/gsd-.*
-claude/\.claude/commands/gsd
-claude/\.claude/hooks/gsd-.*
+# Claude Code config is NOT managed in this repo.
+# Skills live in claude-skills-private (installed as plugins / symlinked);
+# core config is handled by the migrate-ai-config skill. Never stow a claude package.
+^claude$
