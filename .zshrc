@@ -73,4 +73,27 @@ export PATH="$PATH:/Users/michaelhenry/.lmstudio/bin"
 
 # 1Password SSH agent forwarding
 export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
-export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
+
+#Faceless Video Presets Directory
+export FACELESS_PRESETS_DIR="$HOME/Obsidian/projects/faceless-video/presets"
+
+# Firecrawl: routed cloud-first, self-hosted fallback. ~/bin/firecrawl shims the
+# real CLI and picks a backend per command via
+# ~/.claude/skills/firecrawl/scripts/fc_router.py -- cloud until credits reach
+# the reserve, then the self-hosted instance on dockerhost-1 (Tailscale).
+#
+# Deliberately NOT exporting FIRECRAWL_API_URL: the shim reads it as "the caller
+# wants this exact backend" and skips routing entirely. Pin a single run instead:
+#   firecrawl scrape <url> --api-url "$FIRECRAWL_SELF_HOSTED_URL"
+export FIRECRAWL_SELF_HOSTED_URL="http://100.93.17.61:3002"
+
+# Self-hosted gaps. agent/browser/interact/credit-usage have no local
+# implementation, so the router always sends those to cloud. The three below
+# degrade quietly rather than erroring, so force cloud yourself when routed
+# local and you need them: --api-url https://api.firecrawl.dev
+#   - no Fire-engine, so anti-bot / proxied sites fail
+#   - no LLM provider, so json/extract formats fail
+#   - waitFor is hardcoded to 0 (no env var exists to change it), so
+#     client-rendered SPAs return the pre-hydration shell unless you wait.
+#     Harmless on server-rendered pages. Cap is timeout/2, timeout defaults 60000.
+alias fcs='firecrawl scrape --wait-for 8000'
