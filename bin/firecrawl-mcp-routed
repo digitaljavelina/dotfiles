@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Launch firecrawl-mcp against the backend the router picks.
+#
+# LIMITATION: an MCP server is one long-lived process, so this resolves the
+# backend ONCE at startup, not per tool call. A session that begins with credits
+# above the reserve stays on cloud until the server restarts, even if the
+# balance drains mid-session. The CLI shim (~/bin/firecrawl) routes per command
+# and has no such limit. Restart Claude Code to re-resolve.
+#
+# Probes with "scrape" as a representative routable command.
+
+set -uo pipefail
+
+ROUTER="$HOME/bin/fc_router.py"
+CREDENTIALS="$HOME/Library/Application Support/firecrawl-cli/credentials.json"
+CLOUD_URL="https://api.firecrawl.dev"
+
+url="$(python3 "$ROUTER" scrape 2>/dev/null)"
+[[ -n "$url" ]] || url="$CLOUD_URL"
+export FIRECRAWL_API_URL="$url"
+
+# firecrawl-mcp only authenticates from the environment. Read the key the CLI
+# already stores rather than duplicating a secret into ~/.claude.json. Harmless
+# when routed self-hosted, which ignores it.
+if [[ -z "${FIRECRAWL_API_KEY:-}" && -r "$CREDENTIALS" ]]; then
+  key="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('apiKey',''))" "$CREDENTIALS" 2>/dev/null)"
+  [[ -n "$key" ]] && export FIRECRAWL_API_KEY="$key"
+fi
+
+exec npx -y firecrawl-mcp

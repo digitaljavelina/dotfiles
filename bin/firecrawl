@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Firecrawl routing shim: cloud-first, self-hosted fallback.
+#
+# Sits ahead of /opt/homebrew/bin/firecrawl on PATH. Resolves a backend per
+# command via fc_router.py, then hands off to the real CLI. If anything about
+# the routing fails, it falls through to the real CLI unrouted rather than
+# blocking the command.
+#
+# Stowed from ~/.dotfiles/bin/ alongside fc_router.py. Referenced via ~/bin so
+# the path holds on any machine, wherever the dotfiles repo is checked out.
+
+set -uo pipefail
+
+REAL="/opt/homebrew/bin/firecrawl"
+ROUTER="$HOME/bin/fc_router.py"
+
+[[ -x "$REAL" ]] || { echo "firecrawl shim: real CLI missing at $REAL" >&2; exit 127; }
+
+# An explicit --api-url is a deliberate choice. Never second-guess it.
+for arg in "$@"; do
+  case "$arg" in
+    --api-url|--api-url=*) exec "$REAL" "$@" ;;
+  esac
+done
+
+# Same for a caller who exported FIRECRAWL_API_URL for this invocation.
+if [[ -n "${FIRECRAWL_API_URL:-}" ]]; then
+  exec "$REAL" "$@"
+fi
+
+# No subcommand, or a bare flag like --status/--version/--help. Nothing to
+# route; the CLI's stored credentials already point at cloud.
+if [[ $# -eq 0 || "$1" == -* ]]; then
+  exec "$REAL" "$@"
+fi
+
+# Local or auth-only commands never hit a scraping backend. Skip the probe so
+# they stay fast and work offline.
+case "$1" in
+  config|login|logout|view-config|version|help|init|setup|make|launch|launcher|env|doctor)
+    exec "$REAL" "$@" ;;
+esac
+
+# First non-flag argument is the subcommand.
+cmd=""
+for arg in "$@"; do
+  case "$arg" in -*) ;; *) cmd="$arg"; break ;; esac
+done
+
+url="$(python3 "$ROUTER" "$cmd" 2>/dev/null)"
+if [[ -n "$url" ]]; then
+  exec "$REAL" --api-url "$url" "$@"
+fi
+
+# Router unavailable or errored. Better to run unrouted than not at all.
+exec "$REAL" "$@"

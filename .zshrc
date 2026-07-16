@@ -78,9 +78,9 @@ export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agen
 export FACELESS_PRESETS_DIR="$HOME/Obsidian/projects/faceless-video/presets"
 
 # Firecrawl: routed cloud-first, self-hosted fallback. ~/bin/firecrawl shims the
-# real CLI and picks a backend per command via
-# ~/.claude/skills/firecrawl/scripts/fc_router.py -- cloud until credits reach
-# the reserve, then the self-hosted instance on dockerhost-1 (Tailscale).
+# real CLI and picks a backend per command via ~/bin/fc_router.py -- cloud until
+# credits reach the reserve, then the self-hosted instance on dockerhost-1
+# (Tailscale). Both are stowed from ~/.dotfiles/bin/.
 #
 # Deliberately NOT exporting FIRECRAWL_API_URL: the shim reads it as "the caller
 # wants this exact backend" and skips routing entirely. Pin a single run instead:

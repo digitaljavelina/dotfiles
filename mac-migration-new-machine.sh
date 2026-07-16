@@ -187,6 +187,9 @@ for pkg in */; do
   [ "$pkg" = "LaunchAgents" ] && continue
   [ "$pkg" = "scripts" ] && continue
   [ "$pkg" = "data" ] && continue
+  # bin/ is not a package. Stowing it here would map bin/firecrawl to ~/firecrawl;
+  # the root `stow .` below correctly places it at ~/bin/firecrawl.
+  [ "$pkg" = "bin" ] && continue
   if [ -d "$pkg" ]; then
     stow --no-folding "$pkg" 2>/dev/null && success "Stowed package: $pkg" || warn "Package $pkg had conflicts"
   fi
