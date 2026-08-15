@@ -2,6 +2,9 @@
 .env
 data/
 
+# Local-only: lists real hostnames, not for a public repo
+.ssh/config
+
 # GSD plugin - auto-managed, reinstalled via /gsd:update
 claude/.claude/get-shit-done/
 claude/.claude/gsd-file-manifest.json
