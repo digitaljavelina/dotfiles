@@ -97,3 +97,37 @@ export FIRECRAWL_SELF_HOSTED_URL="http://100.93.17.61:3002"
 #     client-rendered SPAs return the pre-hydration shell unless you wait.
 #     Harmless on server-rendered pages. Cap is timeout/2, timeout defaults 60000.
 alias fcs='firecrawl scrape --wait-for 8000'
+
+# docx2md-pick — convert Word docs to Markdown without typing paths.
+# Opens a native file picker (multi-select allowed), runs docx2md --clean on
+# each, and writes the notes to the vault Inbox. Pass a folder to send them
+# somewhere else: docx2md-pick ~/Desktop
+docx2md-pick() {
+  local dest="${1:-$HOME/Obsidian/Inbox}"
+
+  command -v docx2md >/dev/null || {
+    echo "docx2md-pick: docx2md not on PATH" >&2; return 1; }
+  [ -d "$dest" ] || {
+    echo "docx2md-pick: no such directory: $dest" >&2; return 1; }
+
+  local picked
+  picked=$(osascript <<'OSA'
+set theFiles to choose file with prompt "Pick .docx file(s) to convert" of type {"org.openxmlformats.wordprocessingml.document"} with multiple selections allowed
+set out to ""
+repeat with f in theFiles
+	set out to out & (POSIX path of f) & linefeed
+end repeat
+return out
+OSA
+  ) || { echo "docx2md-pick: cancelled" >&2; return 1; }
+
+  [ -n "$picked" ] || { echo "docx2md-pick: nothing picked" >&2; return 1; }
+
+  local n=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    docx2md "$f" --clean -o "$dest" && n=$((n+1))
+  done <<< "$picked"
+
+  echo "docx2md-pick: converted $n file(s) into $dest"
+}
