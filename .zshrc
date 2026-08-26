@@ -194,3 +194,37 @@ OSA
 
   echo "docx2md-pick: converted $n file(s) into $dest"
 }
+
+# pdf2md-pick — convert PDFs to Markdown without typing paths.
+# Opens a native file picker (multi-select allowed) and runs pdf2md on each,
+# writing the notes to the vault Inbox. Pass a folder to send them elsewhere:
+# pdf2md-pick ~/Desktop
+pdf2md-pick() {
+  local dest="${1:-$HOME/Obsidian/Inbox}"
+
+  command -v pdf2md >/dev/null || {
+    echo "pdf2md-pick: pdf2md not on PATH" >&2; return 1; }
+  [ -d "$dest" ] || {
+    echo "pdf2md-pick: no such directory: $dest" >&2; return 1; }
+
+  local picked
+  picked=$(osascript <<'OSA'
+set theFiles to choose file with prompt "Pick PDF(s) to convert" of type {"com.adobe.pdf"} with multiple selections allowed
+set out to ""
+repeat with f in theFiles
+	set out to out & (POSIX path of f) & linefeed
+end repeat
+return out
+OSA
+  ) || { echo "pdf2md-pick: cancelled" >&2; return 1; }
+
+  [ -n "$picked" ] || { echo "pdf2md-pick: nothing picked" >&2; return 1; }
+
+  local n=0
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    pdf2md "$f" -o "$dest" && n=$((n+1))
+  done <<< "$picked"
+
+  echo "pdf2md-pick: converted $n file(s) into $dest"
+}
