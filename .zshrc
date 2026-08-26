@@ -66,13 +66,14 @@ export PATH="$PATH:/Users/michaelhenry/.local/bin:PATH"
 export PATH="$PATH:/Users/michaelhenry/.lmstudio/bin"
 # End of LM Studio CLI section
 
-
-# lmstudio environment variables in claude code
-# export ANTHROPIC_BASE_URL=http://localhost:1234
-# export ANTHROPIC_AUTH_TOKEN=lmstudio
-
 # 1Password SSH agent forwarding
 export SSH_AUTH_SOCK=~/Library/Group\ Containers/2BUA8C4S2C.com.1password/t/agent.sock
+
+# Local secrets (API keys, etc). Real values live in ~/.secrets.zsh (chmod 600,
+# outside this repo, never committed). 1Password is the source of truth; if the
+# file is missing or a key rotates, re-materialize it with:
+#   printf 'export OPENROUTER_API_KEY=%q\n' "$(op read 'op://Personal/OpenRouter API Key/notesPlain')" > ~/.secrets.zsh && chmod 600 ~/.secrets.zsh
+[[ -f ~/.secrets.zsh ]] && source ~/.secrets.zsh
 
 #Faceless Video Presets Directory
 export FACELESS_PRESETS_DIR="$HOME/Obsidian/projects/faceless-video/presets"
@@ -97,6 +98,68 @@ export FIRECRAWL_SELF_HOSTED_URL="http://100.93.17.61:3002"
 #     client-rendered SPAs return the pre-hydration shell unless you wait.
 #     Harmless on server-rendered pages. Cap is timeout/2, timeout defaults 60000.
 alias fcs='firecrawl scrape --wait-for 8000'
+
+# content-ideas skill: keep brand/ and research/ in the vault
+export CONTENT_HOME="/Users/michaelhenry/Obsidian/Projects/YouTube/content-ideas"
+
+#ccimg for pasting clipboard image content to cc in ssh
+# ccimg            -> send clipboard image to the remote box
+# ccimg shot.png   -> send an existing file instead
+  ccimg() {
+    local host="${CCIMG_HOST:-dockerhost-1}"
+    local dir="${CCIMG_DIR:-inbox}"
+    local src base
+
+    if [ -n "$1" ]; then
+      [ -f "$1" ] || { echo "ccimg: no such file: $1" >&2; return 1; }
+      src="$1"
+    else
+      command -v pngpaste >/dev/null 2>&1 || {
+        echo "ccimg: needs pngpaste — brew install pngpaste" >&2; return 1; }
+      src="/tmp/ccimg-$(date +%Y%m%d-%H%M%S).png"
+      pngpaste "$src" 2>/dev/null || {
+        echo "ccimg: no image on the clipboard" >&2; return 1; }
+    fi
+
+    base=$(basename "$src")
+    ssh "$host" "mkdir -p ~/$dir" || return 1
+    scp -q "$src" "$host:$dir/$base" || return 1
+
+    printf '~/%s/%s\n' "$dir" "$base"
+    printf '~/%s/%s' "$dir" "$base" | pbcopy   # path now on your clipboard
+  }
+
+
+
+# wmclean — strip AI watermark characters from whatever is on the clipboard.
+# Copy from a chat window, run wmclean, then paste. Runs locally; the
+# dockerhost-1 service is not involved.
+wmclean() {
+  local script in out err
+
+  script=$(command ls -d "$HOME"/.claude/plugins/cache/watermarks-remover/watermarks-remover/*/service/scripts/clean_text.py 2>/dev/null | sort -V | tail -1)
+  [ -n "$script" ] || {
+    echo "wmclean: clean_text.py not found. Is the watermarks-remover plugin installed?" >&2; return 1; }
+
+  in=$(mktemp -t wmclean-in) || return 1
+  out=$(mktemp -t wmclean-out) || return 1
+  err=$(mktemp -t wmclean-err) || return 1
+
+  pbpaste > "$in"
+  [ -s "$in" ] || {
+    echo "wmclean: no text on the clipboard" >&2; rm -f "$in" "$out" "$err"; return 1; }
+
+  if python3 "$script" "$in" -o "$out" 2>"$err"; then
+    pbcopy < "$out"          # only replace the clipboard on success
+    cat "$err" >&2           # e.g. removed=2 replaced=1 len 46->44
+  else
+    echo "wmclean: failed, clipboard left untouched" >&2
+    cat "$err" >&2
+    rm -f "$in" "$out" "$err"; return 1
+  fi
+
+  rm -f "$in" "$out" "$err"
+}
 
 # docx2md-pick — convert Word docs to Markdown without typing paths.
 # Opens a native file picker (multi-select allowed), runs docx2md --clean on

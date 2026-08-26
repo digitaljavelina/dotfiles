@@ -12,3 +12,13 @@ claude/.claude/package.json
 claude/.claude/agents/gsd-*.md
 claude/.claude/commands/gsd/
 claude/.claude/hooks/gsd-*.js
+
+# Editor and script backups. These are snapshots of real dotfiles, so they can
+# carry secrets that the tracked copies do not. This repo is public.
+*.bak
+*.bak-*
+*.backup
+*~
+*.orig
+*.swp
+.secrets.zsh
