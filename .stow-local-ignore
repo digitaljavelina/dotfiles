@@ -29,3 +29,16 @@ Makefile
 # Skills live in claude-skills-private (installed as plugins / symlinked);
 # core config is handled by the migrate-ai-config skill. Never stow a claude package.
 ^claude$
+
+# Claude Desktop rewrites this file at runtime: starred sessions, sidebar mode,
+# account UUIDs, device name. Symlinking it would keep the repo permanently
+# dirty, and an atomic-rename save would replace the symlink with a real file
+# anyway. mac-migration-old-machine.sh still copies it here as a backup; it is
+# just never stowed.
+claude_desktop_config\.json
+
+# Automator reads a .workflow as a bundle and crashes with
+# "NSFileWrapper regularFileContents" when it finds symlinks INSIDE one, which
+# is exactly what `stow --no-folding` produces. A symlink to the whole bundle
+# directory works fine, so the migration script links these explicitly.
+^Services$

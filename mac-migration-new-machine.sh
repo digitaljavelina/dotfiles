@@ -205,10 +205,22 @@ git checkout -- . 2>/dev/null || true
 cp .stow-local-ignore.bak .stow-local-ignore 2>/dev/null && rm .stow-local-ignore.bak 2>/dev/null || true
 stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (check manually)"
 
-# Finder Quick Actions stowed into ~/Library/Services stay invisible until the
-# pasteboard server rescans. Without this, "Convert to Markdown" is installed
-# but missing from the right-click menu until the next login.
-/System/Library/CoreServices/pbs -flush 2>/dev/null && success "Registered Finder Services" || true
+# Finder Quick Actions are NOT stowed. Automator reads a .workflow as a bundle
+# and crashes when it finds symlinks inside one, which is what --no-folding
+# creates. Link the whole bundle instead, then flush the pasteboard server so
+# the action appears in the right-click menu without a re-login.
+step "Linking Finder Quick Actions..."
+mkdir -p "$HOME/Library/Services"
+for wf in "$DOTFILES/Library/Services/"*.workflow; do
+  [ -e "$wf" ] || continue
+  dest="$HOME/Library/Services/$(basename "$wf")"
+  if [ -e "$dest" ] && [ ! -L "$dest" ]; then
+    warn "$(basename "$wf") already exists as a real file, leaving it alone"
+  else
+    ln -sfn "$wf" "$dest" && success "Linked $(basename "$wf")"
+  fi
+done
+/System/Library/CoreServices/pbs -flush 2>/dev/null || true
 
 
 step "Verifying symlinks..."
