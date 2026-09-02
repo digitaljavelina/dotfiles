@@ -1,4 +1,5 @@
 @byterover/cipher
+@firecrawl/anydoc
 @openai/codex
 @playwright/cli
 clawdbot

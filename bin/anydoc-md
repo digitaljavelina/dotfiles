@@ -1,0 +1,379 @@
+#!/usr/bin/env python3
+"""Convert documents to Markdown beside the original file.
+
+Wraps the anydoc CLI (Rust, local, no network) and writes <name>.md into the
+same directory as the input. anydoc does no OCR: a scanned PDF exits 3. Rather
+than sending it to Firecrawl's cloud, this falls back to the self-hosted
+Stirling-PDF instance on dockerhost-1, which OCRs locally for free, then runs
+anydoc over the OCR'd PDF.
+
+Stowed from ~/.dotfiles/bin/ alongside the firecrawl router. Driven directly on
+the command line, or by the "Convert to Markdown" Finder Quick Action.
+
+Usage:
+    anydoc-md FILE [FILE...]
+    anydoc-md --force-ocr scan.pdf
+    anydoc-md --no-ocr report.docx
+
+Exit status is the number of files that failed, capped at 125.
+"""
+
+from __future__ import annotations
+
+import argparse
+import mimetypes
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import urllib.error
+import urllib.request
+import uuid
+from pathlib import Path
+
+STIRLING_URL = os.environ.get("STIRLING_URL", "http://100.93.17.61:8084")
+OCR_ENDPOINT = "/api/v1/misc/ocr-pdf"
+OCR_TIMEOUT = 600  # OCR of a long scan is slow; this is a ceiling, not a target
+
+# Stirling runs with SECURITY_ENABLELOGIN=true, so every API call needs a key.
+# It lives in the login Keychain rather than a dotfile, and STIRLING_API_KEY
+# overrides it for a one-off run against a different instance.
+KEYCHAIN_SERVICE = "stirling-pdf"
+KEYCHAIN_ACCOUNT = "api-key"  # a stale "auth-token" item under the same service predates this
+KEY_HELP = (
+    "No Stirling API key. Get one at " + STIRLING_URL + "/account (Settings -> "
+    "API key), then store it:\n"
+    "  security add-generic-password -s " + KEYCHAIN_SERVICE + " -a " +
+    KEYCHAIN_ACCOUNT + " -w 'YOUR_KEY' -U"
+)
+
+ANYDOC_NEEDS_OCR = 3  # anydoc's documented exit code for image-only PDF pages
+
+# anydoc reports "needs OCR" on some PDFs that carry a perfectly good text
+# layer, e.g. a design canvas exported as page images with searchable text
+# drawn invisibly on top. OCR-ing those destroys clean text and returns
+# nonsense, so try pdftotext before ever going near an OCR engine. Below this
+# many non-whitespace characters per page the layer is treated as absent.
+TEXT_LAYER_MIN_CHARS_PER_PAGE = 100
+
+# pdftotext wraps at the PDF's visual line breaks. Rejoin a line onto the one
+# above when that line ran to at least this width, which means it wrapped
+# rather than ended. Obsidian reflows a paragraph written as one long line.
+DEWRAP_MIN_WIDTH = 55
+
+
+class MissingKey(Exception):
+    """Raised when OCR is needed but no Stirling API key is configured."""
+
+
+def notify(title: str, message: str) -> None:
+    """Post a macOS notification. Silently does nothing off macOS."""
+    if sys.platform != "darwin":
+        return
+    script = (
+        f'display notification {applescript_string(message)} '
+        f'with title {applescript_string(title)}'
+    )
+    subprocess.run(
+        ["osascript", "-e", script],
+        capture_output=True,
+        check=False,
+    )
+
+
+def applescript_string(text: str) -> str:
+    """Quote a Python string for embedding in AppleScript source."""
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def free_output_path(source: Path, overwrite: bool) -> Path:
+    """The .md path beside `source`, never clobbering an existing file."""
+    candidate = source.with_suffix(".md")
+    if overwrite or not candidate.exists():
+        return candidate
+    stem = source.stem
+    n = 1
+    while True:
+        candidate = source.with_name(f"{stem}-{n}.md")
+        if not candidate.exists():
+            return candidate
+        n += 1
+
+
+def run_anydoc(source: Path) -> tuple[int, bytes, str]:
+    """Run anydoc over one file. Returns (exit code, markdown bytes, stderr)."""
+    proc = subprocess.run(
+        ["anydoc", str(source)],
+        capture_output=True,
+        check=False,
+    )
+    return proc.returncode, proc.stdout, proc.stderr.decode("utf-8", "replace").strip()
+
+
+def encode_multipart(fields: list[tuple[str, str]], filename: str, payload: bytes) -> tuple[bytes, str]:
+    """Build a multipart/form-data body. Returns (body, content type)."""
+    boundary = f"----anydocmd{uuid.uuid4().hex}"
+    sep = f"--{boundary}".encode()
+    chunks: list[bytes] = []
+    for name, value in fields:
+        chunks += [
+            sep,
+            f'Content-Disposition: form-data; name="{name}"'.encode(),
+            b"",
+            value.encode("utf-8"),
+        ]
+    ctype = mimetypes.guess_type(filename)[0] or "application/octet-stream"
+    chunks += [
+        sep,
+        f'Content-Disposition: form-data; name="fileInput"; filename="{filename}"'.encode(),
+        f"Content-Type: {ctype}".encode(),
+        b"",
+        payload,
+        f"--{boundary}--".encode(),
+        b"",
+    ]
+    return b"\r\n".join(chunks), f"multipart/form-data; boundary={boundary}"
+
+
+def dewrap(text: str) -> str:
+    """Join lines that pdftotext broke mid-paragraph, leaving real breaks alone."""
+    out: list[str] = []
+    # Width of the source line that started each output line. Measuring the
+    # joined line instead would cascade: one join makes the line long, which
+    # licenses the next join, and a whole page collapses into one paragraph.
+    widths: list[int] = []
+    for line in text.splitlines():
+        stripped = line.rstrip()
+        if (
+            out
+            and out[-1]
+            and stripped
+            and widths[-1] >= DEWRAP_MIN_WIDTH
+            and not out[-1].endswith(("-", ":"))
+        ):
+            out[-1] = out[-1] + " " + stripped.lstrip()
+            widths[-1] = len(stripped)
+        else:
+            out.append(stripped)
+            widths.append(len(stripped))
+    # Collapse runs of blank lines; pdftotext leaves many around page furniture.
+    collapsed: list[str] = []
+    for line in out:
+        if not line and collapsed and not collapsed[-1]:
+            continue
+        collapsed.append(line)
+    return "\n".join(collapsed).strip() + "\n"
+
+
+def pdf_text_layer(source: Path, pages: int) -> str | None:
+    """Text already embedded in a PDF, or None if there is too little to use."""
+    if shutil.which("pdftotext") is None:
+        return None
+    proc = subprocess.run(
+        ["pdftotext", str(source), "-"],
+        capture_output=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    text = proc.stdout.decode("utf-8", "replace").replace("\f", "\n")
+    density = len("".join(text.split())) / max(pages, 1)
+    if density < TEXT_LAYER_MIN_CHARS_PER_PAGE:
+        return None
+    return dewrap(text)
+
+
+def pdf_page_count(source: Path) -> int:
+    """Page count from pdfinfo, or 1 when it cannot be determined."""
+    if shutil.which("pdfinfo") is None:
+        return 1
+    proc = subprocess.run(
+        ["pdfinfo", str(source)], capture_output=True, text=True, check=False
+    )
+    for line in proc.stdout.splitlines():
+        if line.startswith("Pages:"):
+            try:
+                return int(line.split(":", 1)[1].strip())
+            except ValueError:
+                break
+    return 1
+
+
+def stirling_api_key() -> str | None:
+    """The Stirling API key, from the environment or the login Keychain."""
+    from_env = os.environ.get("STIRLING_API_KEY")
+    if from_env:
+        return from_env.strip()
+    # The Keychain is macOS only. Elsewhere STIRLING_API_KEY is the only source.
+    if shutil.which("security") is None:
+        return None
+    proc = subprocess.run(
+        [
+            "security", "find-generic-password",
+            "-s", KEYCHAIN_SERVICE, "-a", KEYCHAIN_ACCOUNT, "-w",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    key = proc.stdout.strip()
+    return key if proc.returncode == 0 and key else None
+
+
+def stirling_ocr(source: Path, languages: str, force: bool) -> bytes:
+    """OCR a PDF through self-hosted Stirling-PDF. Returns the new PDF bytes.
+
+    force-ocr rasterises every page and re-reads it, which is what a scan needs
+    and what a text-layer PDF does not. skip-text leaves existing text alone.
+    """
+    fields = [
+        ("languages", languages),
+        ("ocrType", "force-ocr" if force else "skip-text"),
+        ("ocrRenderType", "sandwich"),
+    ]
+    key = stirling_api_key()
+    if not key:
+        raise MissingKey(KEY_HELP)
+    body, content_type = encode_multipart(fields, source.name, source.read_bytes())
+    request = urllib.request.Request(
+        STIRLING_URL.rstrip("/") + OCR_ENDPOINT,
+        data=body,
+        headers={
+            "Content-Type": content_type,
+            "Accept": "*/*",
+            "X-API-KEY": key,
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=OCR_TIMEOUT) as response:
+        return response.read()
+
+
+def convert(source: Path, args: argparse.Namespace) -> tuple[bool, str]:
+    """Convert one file. Returns (succeeded, message for the user)."""
+    if not source.is_file():
+        return False, f"{source.name}: not a file"
+
+    if args.force_ocr:
+        code, markdown, err = ANYDOC_NEEDS_OCR, b"", ""
+    else:
+        code, markdown, err = run_anydoc(source)
+
+    route = "anydoc"
+    if code == ANYDOC_NEEDS_OCR and not args.force_ocr:
+        # anydoc is wrong about this often enough to be worth a cheap check:
+        # an embedded text layer is instant, offline, and exact, where OCR of
+        # the same page guesses at glyphs and mangles rotated decorative type.
+        layer = pdf_text_layer(source, pdf_page_count(source))
+        if layer is not None:
+            markdown, code, route = layer.encode("utf-8"), 0, "text layer"
+
+    if code == ANYDOC_NEEDS_OCR:
+        route = "OCR"
+        if args.no_ocr:
+            return False, f"{source.name}: needs OCR, and --no-ocr was set"
+        try:
+            ocred = stirling_ocr(source, args.lang, force=True)
+        except MissingKey as exc:
+            return False, str(exc)
+        except urllib.error.HTTPError as exc:
+            if exc.code in (401, 403):
+                return False, f"{source.name}: Stirling rejected the API key.\n{KEY_HELP}"
+            detail = exc.read()[:200].decode("utf-8", "replace").strip()
+            return False, f"{source.name}: Stirling OCR returned {exc.code}. {detail}"
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            return False, f"{source.name}: cannot reach Stirling at {STIRLING_URL}. {exc}"
+
+        with tempfile.TemporaryDirectory() as workdir:
+            scratch = Path(workdir) / source.name
+            scratch.write_bytes(ocred)
+            code, markdown, err = run_anydoc(scratch)
+        if code != 0:
+            return False, f"{source.name}: failed after OCR. {err or f'exit {code}'}"
+    elif code != 0:
+        return False, f"{source.name}: {err or f'anydoc exit {code}'}"
+
+    destination = free_output_path(source, args.overwrite)
+    # Write to a sibling temp file and rename, so an interrupted run never
+    # leaves a half-written .md next to the original.
+    fd, staged = tempfile.mkstemp(dir=str(destination.parent), suffix=".md.part")
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(markdown)
+        # mkstemp creates 0600. A converted document should read like any other
+        # file in the folder, so widen it to whatever the umask allows.
+        umask = os.umask(0)
+        os.umask(umask)
+        os.chmod(staged, 0o666 & ~umask)
+        shutil.move(staged, destination)
+    except BaseException:
+        Path(staged).unlink(missing_ok=True)
+        raise
+    return True, f"{destination.name} ({route})"
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog="anydoc-md",
+        description="Convert documents to Markdown beside the original file.",
+    )
+    parser.add_argument("files", nargs="+", type=Path, help="documents to convert")
+    parser.add_argument(
+        "--force-ocr",
+        action="store_true",
+        help="OCR every PDF through Stirling, even one that already has text",
+    )
+    parser.add_argument(
+        "--no-ocr",
+        action="store_true",
+        help="never OCR; fail on a scanned PDF instead",
+    )
+    parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="replace an existing .md instead of writing name-1.md",
+    )
+    parser.add_argument(
+        "--lang",
+        default="eng",
+        help="OCR language codes, comma separated (default: eng)",
+    )
+    parser.add_argument("--quiet", action="store_true", help="no macOS notification")
+    args = parser.parse_args()
+
+    if args.force_ocr and args.no_ocr:
+        parser.error("--force-ocr and --no-ocr contradict each other")
+
+    if shutil.which("anydoc") is None:
+        message = "anydoc is not on PATH. Run: npm install -g @firecrawl/anydoc"
+        print(message, file=sys.stderr)
+        if not args.quiet:
+            notify("Convert to Markdown", message)
+        return 125
+
+    written: list[str] = []
+    failures: list[str] = []
+    for source in args.files:
+        ok, message = convert(source.expanduser(), args)
+        if ok:
+            written.append(message)
+            print(message)
+        else:
+            failures.append(message)
+            print(message, file=sys.stderr)
+
+    if not args.quiet:
+        if failures:
+            notify("Convert to Markdown", failures[0] if len(failures) == 1
+                   else f"{len(written)} converted, {len(failures)} failed")
+        elif len(written) == 1:
+            notify("Convert to Markdown", f"Wrote {written[0]}")
+        else:
+            notify("Convert to Markdown", f"Wrote {len(written)} Markdown files")
+
+    return min(len(failures), 125)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
