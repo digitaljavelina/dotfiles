@@ -188,112 +188,66 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 3: Move Dotfiles Into Repo
+# PHASE 3: Copy Dotfiles Into Repo
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 3: Move Dotfiles Into Repo"
+section "Phase 3: Copy Dotfiles Into Repo"
 
-move_dotfile() {
-  local src="$1"
-  local dest="$2"
-  if [ -e "$src" ] && [ ! -L "$src" ]; then
-    # File exists and is NOT already a symlink (not already stowed)
-    if [ -e "$dest" ]; then
-      warn "$dest already exists in dotfiles — skipping (won't overwrite)"
-    else
-      mkdir -p "$(dirname "$dest")"
-      cp "$src" "$dest"
-      success "Copied $(basename "$src") → dotfiles"
-    fi
-  elif [ -L "$src" ]; then
-    skip "$(basename "$src") is already a symlink (likely already stowed)"
+# The files in $HOME are the live copies. Copy each one into the repo so the
+# commit in Phase 8 carries the current version. Git keeps the old ones.
+# Claude Code config is never copied here: it holds secrets, and it is managed
+# by claude-skills-private and the migrate-ai-config skill instead.
+sync_dotfile() {
+  local rel="$1"
+  local src="$HOME/$rel"
+  local dest="$DOTFILES/$rel"
+  if [ ! -f "$src" ]; then
+    skip "$rel not found"
+  elif [ -f "$dest" ] && cmp -s "$src" "$dest"; then
+    skip "$rel unchanged"
   else
-    skip "$(basename "$src") does not exist"
+    mkdir -p "$(dirname "$dest")"
+    cp -p "$src" "$dest"
+    success "Copied $rel → dotfiles"
   fi
 }
 
-step "Shell config files..."
-move_dotfile "$HOME/.zshrc" "$DOTFILES/.zshrc"
-move_dotfile "$HOME/.zprofile" "$DOTFILES/.zprofile"
+DOTFILE_PATHS=(
+  .zshrc
+  .zprofile
+  .gitconfig
+  .gitignore
+  .pre-commit-config.yaml
+  .ssh/config
+  .config/ghostty/config
+  "Safari Desktop Picture.jpg"
+)
 
-step "Git config..."
-move_dotfile "$HOME/.gitconfig" "$DOTFILES/.gitconfig"
+step "Dotfiles..."
+for rel in "${DOTFILE_PATHS[@]}"; do
+  sync_dotfile "$rel"
+done
 
-step "SSH config (host aliases + 1Password agent socket)..."
-SSH_CONFIG="$HOME/.ssh/config"
-SSH_DEST="$DOTFILES/.ssh/config"
-if [ -f "$SSH_CONFIG" ]; then
-  if [ ! -e "$SSH_DEST" ]; then
-    mkdir -p "$DOTFILES/.ssh"
-    cp "$SSH_CONFIG" "$SSH_DEST"
-    success "Copied .ssh/config → dotfiles"
-  elif [ -L "$SSH_CONFIG" ]; then
-    skip ".ssh/config is already a symlink (likely already stowed)"
+step "Scripts in ~/bin that the repo tracks..."
+for f in "$DOTFILES"/bin/*; do
+  [ -f "$f" ] || continue
+  sync_dotfile "bin/$(basename "$f")"
+done
+
+step "Finder Quick Actions..."
+for wf in "$DOTFILES/Library/Services/"*.workflow; do
+  [ -e "$wf" ] || continue
+  live="$HOME/Library/Services/$(basename "$wf")"
+  if [ -d "$live" ]; then
+    rsync -a --delete "$live/" "$wf/"
+    success "Copied $(basename "$wf") → dotfiles"
   else
-    skip ".ssh/config already in dotfiles"
-  fi
-else
-  skip ".ssh/config not found"
-fi
-
-step "Ghostty config..."
-GHOSTTY_SRC="$HOME/.config/ghostty/config"
-GHOSTTY_DEST="$DOTFILES/.config/ghostty/config"
-if [ -L "$GHOSTTY_SRC" ]; then
-  # Resolve the symlink to get the actual file
-  GHOSTTY_REAL=$(readlink "$GHOSTTY_SRC" 2>/dev/null || readlink -f "$GHOSTTY_SRC" 2>/dev/null)
-  if [ -f "$GHOSTTY_REAL" ] && [ ! -e "$GHOSTTY_DEST" ]; then
-    mkdir -p "$(dirname "$GHOSTTY_DEST")"
-    cp "$GHOSTTY_REAL" "$GHOSTTY_DEST"
-    success "Copied ghostty config (resolved from symlink at $GHOSTTY_REAL)"
-  elif [ -e "$GHOSTTY_DEST" ]; then
-    skip "Ghostty config already in dotfiles"
-  fi
-elif [ -f "$GHOSTTY_SRC" ]; then
-  move_dotfile "$GHOSTTY_SRC" "$GHOSTTY_DEST"
-else
-  skip "Ghostty config not found"
-fi
-
-step "Claude Code config..."
-CLAUDE_DEST="$DOTFILES/claude/.claude"
-mkdir -p "$CLAUDE_DEST"
-
-# settings.json — copy if not already stowed
-if [ -f "$HOME/.claude/settings.json" ] && [ ! -L "$HOME/.claude/settings.json" ]; then
-  cp "$HOME/.claude/settings.json" "$CLAUDE_DEST/settings.json"
-  success "Copied .claude/settings.json"
-elif [ -L "$HOME/.claude/settings.json" ]; then
-  success ".claude/settings.json already stowed"
-else
-  skip ".claude/settings.json not found"
-fi
-
-# Directories: sync any new items not yet in dotfiles
-# (Phase 8 will handle the interactive audit; this catches initial setup)
-for item in commands skills agents hooks; do
-  if [ -d "$HOME/.claude/$item" ]; then
-    mkdir -p "$CLAUDE_DEST/$item"
-    success ".claude/$item directory present"
+    skip "$(basename "$wf") not installed on this Mac"
   fi
 done
 
-step "Claude Desktop config (MCP servers + preferences)..."
-CLAUDE_DESKTOP_SRC="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
-CLAUDE_DESKTOP_DEST="$DOTFILES/Library/Application Support/Claude/claude_desktop_config.json"
-if [ -f "$CLAUDE_DESKTOP_SRC" ]; then
-  if [ ! -e "$CLAUDE_DESKTOP_DEST" ]; then
-    mkdir -p "$(dirname "$CLAUDE_DESKTOP_DEST")"
-    cp "$CLAUDE_DESKTOP_SRC" "$CLAUDE_DESKTOP_DEST"
-    success "Copied claude_desktop_config.json → dotfiles"
-  elif [ -L "$CLAUDE_DESKTOP_SRC" ]; then
-    skip "claude_desktop_config.json already stowed"
-  else
-    skip "claude_desktop_config.json already in dotfiles"
-  fi
-else
-  skip "Claude Desktop config not found"
-fi
+step "Claude Desktop config (backup only, never copied back out)..."
+sync_dotfile "Library/Application Support/Claude/claude_desktop_config.json"
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 4: Backup Fonts to iCloud Drive
@@ -364,232 +318,17 @@ section "Phase 6: SSH Keys"
 
 step "Verifying SSH setup..."
 if [ -f "$DOTFILES/.ssh/config" ]; then
-  success "SSH config already in dotfiles (will be stowed on new machine)"
+  success "SSH config already in dotfiles (copied into place on new machine)"
   info "SSH keys are managed by 1Password SSH Agent — no key files to transfer"
 else
   warn "SSH config not found in dotfiles — was it copied in Phase 3?"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 7: Create Stow Ignore Files
+# PHASE 7: Find Untracked Apps
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 7: Stow Configuration"
-
-step "Creating .stow-local-ignore (root)..."
-STOW_IGNORE="$DOTFILES/.stow-local-ignore"
-if [ ! -f "$STOW_IGNORE" ]; then
-  cat > "$STOW_IGNORE" << 'EOF'
-\.DS_Store
-.git
-.env
-^data$
-
-# GSD plugin - auto-managed, reinstalled via /gsd:update
-claude/\.claude/get-shit-done
-claude/\.claude/gsd-file-manifest.json
-claude/\.claude/package.json
-claude/\.claude/agents/gsd-.*
-claude/\.claude/commands/gsd
-claude/\.claude/hooks/gsd-.*
-
-# Non-config files (referenced by path, not symlinked)
-Brewfile
-npm-globals\.txt
-uv-tools\.txt
-pipx-tools\.txt
-pip-globals\.txt
-rbenv-versions\.txt
-ruby-gems\.txt
-cargo-tools\.txt
-go-tools\.txt
-untracked-apps\.md
-Safari Desktop Picture\.jpg
-mac-settings\.sh
-setapp-migrate\.sh
-setup\.sh
-find_untracked_apps\.sh
-mac-migration-old-machine\.sh
-mac-migration-new-machine\.sh
-LaunchAgents
-scripts
-LICENSE
-README.*
-Makefile
-\.stow-local-ignore
-EOF
-  success "Created root .stow-local-ignore"
-else
-  skip ".stow-local-ignore already exists"
-fi
-
-step "Creating per-package ignore for claude..."
-CLAUDE_IGNORE="$DOTFILES/claude/.stow-local-ignore"
-if [ ! -f "$CLAUDE_IGNORE" ]; then
-  cat > "$CLAUDE_IGNORE" << 'EOF'
-\.DS_Store
-EOF
-  success "Created claude/.stow-local-ignore"
-else
-  skip "claude/.stow-local-ignore already exists"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 8: Stow Everything
-# ═══════════════════════════════════════════════════════════════════════════════
-
-section "Phase 8: Stow Dotfiles"
-
-step "Running stow..."
-cd "$DOTFILES"
-
-# Stow named packages (directories with nested structure)
-for pkg in */; do
-  pkg="${pkg%/}"
-  if [ -d "$pkg" ] && [ "$pkg" != "LaunchAgents" ] && [ "$pkg" != "scripts" ] && [ "$pkg" != "data" ]; then
-    stow --no-folding "$pkg" 2>/dev/null && success "Stowed package: $pkg" || warn "Package $pkg had conflicts (may already be stowed)"
-  fi
-done
-
-# Stow loose dotfiles (single-package mode)
-stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (may already be stowed)"
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 9: Audit Claude Code Config (skills, commands, agents, hooks)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-section "Phase 9: Audit Claude Code Config"
-
-# ── Helpers: find and migrate untracked items ────────────────────────────────
-
-# Items provided by plugins — recreated by /install
-PLUGIN_ITEMS=(
-  "deploy-to-vercel"
-  "vercel-composition-patterns"
-  "vercel-react-best-practices"
-  "vercel-react-native-skills"
-  "web-design-guidelines"
-)
-
-is_plugin_item() {
-  local name="$1"
-  for pi in "${PLUGIN_ITEMS[@]}"; do
-    [[ "$name" == "$pi" ]] && return 0
-  done
-  return 1
-}
-
-# GSD items are auto-managed by /gsd:update — skip them
-is_gsd_item() {
-  local name="$1"
-  [[ "$name" == gsd-* || "$name" == "gsd" || "$name" == "get-shit-done" ]] && return 0
-  return 1
-}
-
-find_untracked() {
-  local item_type="$1"  # skills, commands, agents, hooks
-  local live_dir="$HOME/.claude/$item_type"
-  local repo_dir="$DOTFILES/claude/.claude/$item_type"
-
-  FOUND_UNTRACKED=()
-  [ -d "$live_dir" ] || return
-
-  # Check subdirectories (skills/my-skill/, commands/my-cmd/, etc.)
-  for entry in "$live_dir"/*/; do
-    [ -d "$entry" ] || continue
-    local name=$(basename "$entry")
-
-    # Skip if directory itself is a symlink
-    [ -L "$entry" ] && continue
-
-    # Skip if leaf files inside are symlinked (stow --no-folding creates real dirs with symlinked files)
-    local any_symlink=false
-    for f in "$entry"/*; do
-      [ -L "$f" ] && any_symlink=true && break
-    done
-    $any_symlink && continue
-
-    # Skip plugin-provided and GSD-managed items
-    is_plugin_item "$name" && continue
-    is_gsd_item "$name" && continue
-
-    FOUND_UNTRACKED+=("$name")
-  done
-
-  # Check loose files (hooks may have individual files, not subdirs)
-  for entry in "$live_dir"/*; do
-    [ -f "$entry" ] || continue
-    [ -L "$entry" ] && continue
-    local name=$(basename "$entry")
-    is_gsd_item "$name" && continue
-    # Check if already in repo
-    [ -e "$repo_dir/$name" ] && continue
-    FOUND_UNTRACKED+=("$name")
-  done
-}
-
-migrate_untracked() {
-  local item_type="$1"
-  local live_dir="$HOME/.claude/$item_type"
-  local repo_dir="$DOTFILES/claude/.claude/$item_type"
-  local migrated=0
-
-  mkdir -p "$repo_dir"
-
-  for name in "${FOUND_UNTRACKED[@]}"; do
-    local src="$live_dir/$name"
-    local dest="$repo_dir/$name"
-    # Remove nested .git directories
-    [ -d "$src/.git" ] && rm -rf "$src/.git"
-    if [ -e "$dest" ]; then
-      warn "$name already in dotfiles — skipping"
-      continue
-    fi
-    mv "$src" "$dest"
-    success "Moved $item_type/$name → dotfiles"
-    ((migrated++))
-  done
-
-  MIGRATE_COUNT=$migrated
-}
-
-# ── Audit each config directory ──────────────────────────────────────────────
-
-TOTAL_MIGRATED=0
-
-for ITEM_TYPE in skills commands agents hooks; do
-  step "Checking for untracked ${ITEM_TYPE}..."
-
-  find_untracked "$ITEM_TYPE"
-
-  if [ ${#FOUND_UNTRACKED[@]} -gt 0 ]; then
-    warn "Found ${#FOUND_UNTRACKED[@]} untracked ${ITEM_TYPE}:"
-    for s in "${FOUND_UNTRACKED[@]}"; do
-      echo -e "      ${YELLOW}⚠  $s${RESET}"
-    done
-    echo ""
-    if confirm "Move these ${ITEM_TYPE} into dotfiles?"; then
-      migrate_untracked "$ITEM_TYPE"
-      TOTAL_MIGRATED=$((TOTAL_MIGRATED + MIGRATE_COUNT))
-    else
-      warn "Skipped — these ${ITEM_TYPE} won't survive migration"
-    fi
-  else
-    success "All ${ITEM_TYPE} are tracked in dotfiles or provided by plugins"
-  fi
-done
-
-# Restow if anything was migrated
-if [ "$TOTAL_MIGRATED" -gt 0 ]; then
-  cd "$DOTFILES" && stow --no-folding claude 2>/dev/null
-  success "Restowed claude package ($TOTAL_MIGRATED new item(s))"
-fi
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 10: Find Untracked Apps
-# ═══════════════════════════════════════════════════════════════════════════════
-
-section "Phase 10: Find Untracked Apps"
+section "Phase 7: Find Untracked Apps"
 
 step "Scanning /Applications for apps not in Brewfile or Setapp..."
 
@@ -639,10 +378,10 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 11: Git Commit
+# PHASE 8: Git Commit
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 11: Commit and Push"
+section "Phase 8: Commit and Push"
 
 step "Checking for changes..."
 cd "$DOTFILES"
@@ -673,7 +412,7 @@ else
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 12: Pre-Migration Checklist
+# PHASE 9: Pre-Migration Checklist
 # ═══════════════════════════════════════════════════════════════════════════════
 
 section "Pre-Migration Checklist"
@@ -684,9 +423,8 @@ echo ""
 echo -e "  ${DIM}Automated (done by this script):${RESET}"
 echo "    [x] Brewfile exported"
 echo "    [x] Package manager inventories saved"
-echo "    [x] Dotfiles moved and stowed"
+echo "    [x] Dotfiles copied into repo"
 echo "    [x] Launch agents backed up"
-echo "    [x] Claude Code config audited (skills, commands, agents, hooks)"
 echo "    [x] Changes committed to git"
 echo ""
 echo -e "  ${BOLD}Manual steps remaining:${RESET}"

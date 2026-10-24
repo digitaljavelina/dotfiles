@@ -123,10 +123,6 @@ else
   fi
 fi
 
-step "Installing Stow..."
-brew install stow 2>/dev/null || true
-success "Stow ready"
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 3: Oh My Zsh
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -150,122 +146,76 @@ if [ -f "$HOME/.zshrc" ] && [ ! -L "$HOME/.zshrc" ]; then
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# PHASE 4: Stow Dotfiles
+# PHASE 4: Copy Dotfiles
 # ═══════════════════════════════════════════════════════════════════════════════
 
-section "Phase 4: Stow Dotfiles"
+section "Phase 4: Copy Dotfiles"
 
-step "Stowing named packages..."
+# Dotfiles are plain copies, not symlinks. The files in $HOME are the live ones,
+# and mac-migration-old-machine.sh copies them back into the repo before a move.
+# Not copied here:
+#   - Claude Code config. It is never managed in this repo. Skills come from
+#     claude-skills-private, core config from the migrate-ai-config skill.
+#   - claude_desktop_config.json. Claude Desktop rewrites it at runtime, so the
+#     repo copy is a backup only.
+DOTFILE_PATHS=(
+  .zshrc
+  .zprofile
+  .gitconfig
+  .gitignore
+  .pre-commit-config.yaml
+  .ssh/config
+  .config/ghostty/config
+  "Safari Desktop Picture.jpg"
+)
+
+step "Copying dotfiles into \$HOME..."
 cd "$DOTFILES"
-
-# Claude Code needs special handling — create the directory first
-if [ -d "$DOTFILES/claude" ]; then
-  step "Setting up Claude Code config..."
-  if command -v claude &>/dev/null; then
-    info "Claude Code already installed"
-  else
-    info "Claude Code not yet installed — will install in Phase 6"
-    info "Creating ~/.claude/ directory structure..."
-    mkdir -p "$HOME/.claude"
+for f in "${DOTFILE_PATHS[@]}" bin/*; do
+  [ -f "$DOTFILES/$f" ] || continue
+  dest="$HOME/$f"
+  mkdir -p "$(dirname "$dest")"
+  if [ -f "$dest" ] && [ ! -L "$dest" ] && cmp -s "$DOTFILES/$f" "$dest"; then
+    success "$f already up to date"
+    continue
   fi
-
-  # Use --adopt to handle any existing default files, then restore ours
-  # IMPORTANT: git checkout reverts ALL tracked files including .stow-local-ignore,
-  # so we preserve it first and restore after checkout
-  cp .stow-local-ignore .stow-local-ignore.bak 2>/dev/null || true
-  stow --no-folding --adopt claude 2>/dev/null || true
-  git checkout -- . 2>/dev/null || true
-  cp .stow-local-ignore.bak .stow-local-ignore 2>/dev/null && rm .stow-local-ignore.bak 2>/dev/null || true
-  stow --no-folding claude 2>/dev/null || true
-  success "Stowed claude package"
-fi
-
-# Stow any other named packages
-for pkg in */; do
-  pkg="${pkg%/}"
-  [ "$pkg" = "claude" ] && continue
-  [ "$pkg" = "LaunchAgents" ] && continue
-  [ "$pkg" = "scripts" ] && continue
-  [ "$pkg" = "data" ] && continue
-  # bin/ is not a package. Stowing it here would map bin/firecrawl to ~/firecrawl;
-  # the root `stow .` below correctly places it at ~/bin/firecrawl.
-  [ "$pkg" = "bin" ] && continue
-  if [ -d "$pkg" ]; then
-    stow --no-folding "$pkg" 2>/dev/null && success "Stowed package: $pkg" || warn "Package $pkg had conflicts"
+  # A fresh Mac may already have .zprofile (Homebrew installer) or .zshrc.
+  # Keep the old one beside ours rather than overwriting it.
+  if [ -e "$dest" ] || [ -L "$dest" ]; then
+    mv "$dest" "$dest.pre-dotfiles"
+    info "Kept the existing $f as $f.pre-dotfiles"
   fi
+  cp -p "$DOTFILES/$f" "$dest"
+  success "Copied $f"
 done
+[ -d "$HOME/.ssh" ] && chmod 700 "$HOME/.ssh"
 
-step "Stowing root dotfiles..."
-# On a fresh Mac, .zprofile exists (Homebrew installer creates it) and .zshrc
-# may exist from Oh My Zsh. Use --adopt to pull these into the repo, then
-# git checkout to restore our versions over the adopted defaults.
-cp .stow-local-ignore .stow-local-ignore.bak 2>/dev/null || true
-stow . --no-folding --adopt 2>/dev/null || true
-git checkout -- . 2>/dev/null || true
-cp .stow-local-ignore.bak .stow-local-ignore 2>/dev/null && rm .stow-local-ignore.bak 2>/dev/null || true
-stow . --no-folding 2>/dev/null && success "Stowed root dotfiles" || warn "Root dotfiles had conflicts (check manually)"
-
-# Finder Quick Actions are NOT stowed. Automator reads a .workflow as a bundle
-# and crashes when it finds symlinks inside one, which is what --no-folding
-# creates. Link the whole bundle instead, then flush the pasteboard server so
-# the action appears in the right-click menu without a re-login.
-step "Linking Finder Quick Actions..."
+# Automator reads a .workflow as a bundle and crashes when it finds symlinks
+# inside one. A real copy of the bundle works. Flush the pasteboard server
+# afterward so the action appears in the right-click menu without a re-login.
+step "Copying Finder Quick Actions..."
 mkdir -p "$HOME/Library/Services"
 for wf in "$DOTFILES/Library/Services/"*.workflow; do
   [ -e "$wf" ] || continue
   dest="$HOME/Library/Services/$(basename "$wf")"
   if [ -e "$dest" ] && [ ! -L "$dest" ]; then
-    warn "$(basename "$wf") already exists as a real file, leaving it alone"
+    warn "$(basename "$wf") already exists, leaving it alone"
   else
-    ln -sfn "$wf" "$dest" && success "Linked $(basename "$wf")"
+    [ -L "$dest" ] && rm "$dest"
+    cp -Rp "$wf" "$dest" && success "Copied $(basename "$wf")"
   fi
 done
 /System/Library/CoreServices/pbs -flush 2>/dev/null || true
 
-
-step "Verifying symlinks..."
+step "Verifying dotfiles..."
 VERIFY_FILES=(".zshrc" ".zprofile" ".gitconfig" ".config/ghostty/config")
 for f in "${VERIFY_FILES[@]}"; do
-  if [ -L "$HOME/$f" ]; then
-    success "$f → $(readlink "$HOME/$f")"
-  elif [ -f "$HOME/$f" ]; then
-    warn "$f exists but is NOT a symlink"
+  if [ -f "$HOME/$f" ] && [ ! -L "$HOME/$f" ]; then
+    success "$f in place"
   else
     info "$f not present (may not be needed)"
   fi
 done
-
-if [ -L "$HOME/.claude/settings.json" ]; then
-  success ".claude/settings.json → $(readlink "$HOME/.claude/settings.json")"
-else
-  warn ".claude/settings.json is not a symlink"
-fi
-
-step "Verifying Claude Code skills..."
-SKILLS_DIR="$HOME/.claude/skills"
-SKILLS_REPO="$DOTFILES/claude/.claude/skills"
-if [ -d "$SKILLS_REPO" ]; then
-  SKILL_COUNT=0
-  SKILL_OK=0
-  for skill_dir in "$SKILLS_REPO"/*/; do
-    [ -d "$skill_dir" ] || continue
-    skill_name=$(basename "$skill_dir")
-    ((SKILL_COUNT++))
-    skill_file="$SKILLS_DIR/$skill_name/SKILL.md"
-    if [ -L "$skill_file" ]; then
-      ((SKILL_OK++))
-    else
-      warn "Skill '$skill_name' not symlinked"
-    fi
-  done
-  if [ "$SKILL_COUNT" -gt 0 ]; then
-    success "$SKILL_OK/$SKILL_COUNT custom skills restored via stow"
-  else
-    info "No custom skills in dotfiles repo"
-  fi
-else
-  info "No skills directory in dotfiles"
-fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # PHASE 5: Restore Fonts from iCloud Drive
@@ -754,15 +704,13 @@ fi
 section "Phase 10: SSH Config"
 
 step "Verifying SSH config..."
-if [ -L "$HOME/.ssh/config" ]; then
-  success "SSH config symlinked → $(readlink "$HOME/.ssh/config")"
+if [ -f "$HOME/.ssh/config" ]; then
+  success "SSH config present"
   info "SSH keys are managed by 1Password SSH Agent — no key files needed"
   info "Make sure 1Password is installed and SSH Agent is enabled in its settings"
-elif [ -f "$HOME/.ssh/config" ]; then
-  success "SSH config present (not symlinked — may have been copied manually)"
 else
-  warn "SSH config not found — stow may not have created ~/.ssh/config"
-  info "Check that ~/.dotfiles/.ssh/config exists and re-run: cd ~/.dotfiles && stow . --no-folding"
+  warn "SSH config not found. It is gitignored, so a fresh clone will not have it"
+  info "Copy it over from the old Mac: ~/.dotfiles/.ssh/config to ~/.ssh/config"
 fi
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -866,8 +814,8 @@ echo ""
 echo -e "  ${BOLD}Project-scoped (run from within the project):${RESET}"
 echo "    /install php-lsp@claude-plugins-official"
 echo ""
-echo -e "  ${DIM}Note: Custom skills (audit, excalidraw, firecrawl, tutorial, etc.)${RESET}"
-echo -e "  ${DIM}are restored automatically by stow in Phase 4.${RESET}"
+echo -e "  ${DIM}Note: Custom skills come from claude-skills-private and the${RESET}"
+echo -e "  ${DIM}migrate-ai-config skill, not from this repo.${RESET}"
 echo -e "  ${DIM}Plugin-provided skills (vercel-*, web-design-guidelines, deploy-to-vercel)${RESET}"
 echo -e "  ${DIM}are recreated when you install the vercel plugin above.${RESET}"
 echo ""
@@ -992,9 +940,9 @@ echo ""
 echo -e "  ${GREEN}${BOLD}Your new Mac is set up.${RESET}"
 echo ""
 echo -e "  ${DIM}Automated:${RESET}"
-echo "    [x] Xcode CLT, Homebrew, Stow installed"
+echo "    [x] Xcode CLT, Homebrew installed"
 echo "    [x] Oh My Zsh installed"
-echo "    [x] Dotfiles stowed (shell, git, ghostty, claude)"
+echo "    [x] Dotfiles copied (shell, git, ssh, ghostty, ~/bin)"
 echo "    [x] Brewfile apps installed (formulae, casks, fonts, mas)"
 echo "    [x] Dev tools restored (npm, uv, pipx, pip, rbenv, rustup/cargo, fabric)"
 echo "    [x] macOS preferences applied"

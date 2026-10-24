@@ -6,7 +6,7 @@
 # the routing fails, it falls through to the real CLI unrouted rather than
 # blocking the command.
 #
-# Stowed from ~/.dotfiles/bin/ alongside fc_router.py. Referenced via ~/bin so
+# Copied from ~/.dotfiles/bin/ alongside fc_router.py. Referenced via ~/bin so
 # the path holds on any machine, wherever the dotfiles repo is checked out.
 
 set -uo pipefail

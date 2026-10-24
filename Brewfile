@@ -189,8 +189,6 @@ brew "rust"
 brew "silicon"
 # SOcket CAT: netcat on steroids
 brew "socat"
-# Organize software neatly under a single directory tree (e.g. /usr/local)
-brew "stow"
 # Formatting tool for reformatting Swift code
 brew "swiftformat"
 # Tool to enforce Swift style and conventions

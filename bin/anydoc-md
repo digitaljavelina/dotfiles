@@ -7,7 +7,7 @@ than sending it to Firecrawl's cloud, this falls back to the self-hosted
 Stirling-PDF instance on dockerhost-1, which OCRs locally for free, then runs
 anydoc over the OCR'd PDF.
 
-Stowed from ~/.dotfiles/bin/ alongside the firecrawl router. Driven directly on
+Copied from ~/.dotfiles/bin/ alongside the firecrawl router. Driven directly on
 the command line, or by the "Convert to Markdown" Finder Quick Action.
 
 Usage:

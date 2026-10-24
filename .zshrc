@@ -81,7 +81,7 @@ export FACELESS_PRESETS_DIR="$HOME/Obsidian/projects/faceless-video/presets"
 # Firecrawl: routed cloud-first, self-hosted fallback. ~/bin/firecrawl shims the
 # real CLI and picks a backend per command via ~/bin/fc_router.py -- cloud until
 # credits reach the reserve, then the self-hosted instance on dockerhost-1
-# (Tailscale). Both are stowed from ~/.dotfiles/bin/.
+# (Tailscale). Both are copied from ~/.dotfiles/bin/.
 #
 # Deliberately NOT exporting FIRECRAWL_API_URL: the shim reads it as "the caller
 # wants this exact backend" and skips routing entirely. Pin a single run instead:
@@ -228,3 +228,12 @@ OSA
 
   echo "pdf2md-pick: converted $n file(s) into $dest"
 }
+
+# Ollama runs headless via launchd (dev.local.ollama), bound to the Tailscale IP only.
+# The CLI defaults to 127.0.0.1, so point it there. Set 2026-09-23.
+export OLLAMA_HOST=100.101.245.30:11434
+
+# REA
+export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+export GHIDRA_INSTALL_DIR="$HOME/tools/ghidra_12.1.4_PUBLIC"
+export MCP_TOOL_TIMEOUT=1800000   # let slow MCP tools (REA/Ghidra analysis) run 30 min

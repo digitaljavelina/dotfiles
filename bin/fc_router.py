@@ -10,7 +10,7 @@ is what lets it drift back to cloud on its own after a billing-cycle refill.
 Checking the balance is free and costs no credits, so the cache exists to avoid
 an HTTP round-trip on every scrape, not to save money.
 
-Stowed from ~/.dotfiles/bin/, driven by the ~/bin/firecrawl shim.
+Copied from ~/.dotfiles/bin/, driven by the ~/bin/firecrawl shim.
 
 Usage:
     fc_router.py <command>              # print the API URL to use (cached)
