@@ -264,8 +264,18 @@ if [ -f '/Users/michaelhenry/Library/Group Containers/FELUD555VC.group.com.egnyt
 shelf-leave() {
   cd ~/bama/Shelf || return 1
   if [[ -n $(git status --porcelain -- . ':!.claude/claudex/log') ]]; then
-    echo "Heads up: these Shelf changes are not committed, so they will not travel:"
+    echo "These Shelf changes are not committed:"
     git status --short -- . ':!.claude/claudex/log'
+    if read -q "?Commit these as WIP and push? y/n "; then
+      echo
+      git add -A -- . ':!.claude/claudex/log' &&
+        git commit -m "WIP: switching Macs from $(scutil --get LocalHostName)" ||
+        { echo "shelf-leave: commit failed. Fix it before you switch."; return 1; }
+    else
+      echo
+      echo "shelf-leave: stopped. Commit or stash first, or the changes stay on this Mac."
+      return 1
+    fi
   fi
   git push || { echo "shelf-leave: push failed. Fix it before you switch."; return 1; }
   echo "Pushed. Now quit Claude on this Mac."
