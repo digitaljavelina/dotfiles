@@ -62,7 +62,7 @@ eval "$(zoxide init zsh)"
 alias ls="eza --icons --group-directories-first -ll"
 
 # Added by LM Studio CLI (lms)
-export PATH="$PATH:/Users/michaelhenry/.local/bin:PATH"
+export PATH="$PATH:/Users/michaelhenry/.local/bin"
 export PATH="$PATH:/Users/michaelhenry/.lmstudio/bin"
 # End of LM Studio CLI section
 
@@ -129,7 +129,21 @@ export CONTENT_HOME="/Users/michaelhenry/Obsidian/Projects/YouTube/content-ideas
     printf '~/%s/%s' "$dir" "$base" | pbcopy   # path now on your clipboard
   }
 
+# claude tmux to dj-studio
+claude-home() {
+  if [[ -n "$TMUX" ]]; then
+    echo "Already inside tmux. Detach first with Ctrl-b d." >&2
+    return 1
+  fi
+  ssh -t studio '/opt/homebrew/bin/tmux new -As claude'
+}
+alias ch='claude-home'
 
+# claude herdr to dj-studio
+herdr-home() {
+  ssh -t studio '/opt/homebrew/bin/herdr'
+}
+alias hh='herdr-home'
 
 # wmclean — strip AI watermark characters from whatever is on the clipboard.
 # Copy from a chat window, run wmclean, then paste. Runs locally; the
@@ -237,3 +251,36 @@ export OLLAMA_HOST=100.101.245.30:11434
 export JAVA_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
 export GHIDRA_INSTALL_DIR="$HOME/tools/ghidra_12.1.4_PUBLIC"
 export MCP_TOOL_TIMEOUT=1800000   # let slow MCP tools (REA/Ghidra analysis) run 30 min
+
+export PATH=/opt/homebrew/opt/ffmpeg-full/bin:$PATH
+
+# The next line updates PATH for egcli command.
+if [ -f '/Users/michaelhenry/Library/Group Containers/FELUD555VC.group.com.egnyte.DesktopApp/CLI/egcli.inc' ]; then . '/Users/michaelhenry/Library/Group Containers/FELUD555VC.group.com.egnyte.DesktopApp/CLI/egcli.inc'; fi
+
+# >>> shelf handoff >>>
+# Move the Shelf Claude session between the Mac Studio and the laptop.
+# Guide: ~/Obsidian/Projects/Shelf/claude-code-session-handoff-mac-studio-laptop.md
+# Old Mac: shelf-leave, then quit Claude. New Mac: shelf-here.
+shelf-leave() {
+  cd ~/bama/Shelf || return 1
+  if [[ -n $(git status --porcelain -- . ':!.claude/claudex/log') ]]; then
+    echo "Heads up: these Shelf changes are not committed, so they will not travel:"
+    git status --short -- . ':!.claude/claudex/log'
+  fi
+  git push || { echo "shelf-leave: push failed. Fix it before you switch."; return 1; }
+  echo "Pushed. Now quit Claude on this Mac."
+}
+
+# Extra flags go to claude-handoff, e.g. shelf-here --dry-run
+shelf-here() {
+  local other
+  case $(scutil --get LocalHostName) in
+    Mac-Studio)           other=laptop ;;
+    Digital-Javelina-Pro) other=studio ;;
+    *) echo "shelf-here: this Mac is not the Studio or the laptop."; return 1 ;;
+  esac
+  cd ~/bama/Shelf || return 1
+  git pull --ff-only || { echo "shelf-here: git pull failed. Fix it first."; return 1; }
+  claude-handoff "$@" "$other" -- --dangerously-skip-permissions
+}
+# <<< shelf handoff <<<
